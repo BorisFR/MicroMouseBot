@@ -15,6 +15,8 @@ AllSensors allSensors = AllSensors();
 
 #include "TheMap.h"
 TheMap theMap = TheMap();
+CellState occupancyGrid[MAP_WIDTH][MAP_HEIGHT];
+BotPose botPose;
 
 void setup()
 {
@@ -24,7 +26,8 @@ void setup()
   allSensors.setup();
   theMap.setup();
   theScreen.setup();
-  theMap.printMap();
+  //theMap.printMap();
+  theScreen.showMap();
 }
 
 void loop()
@@ -36,7 +39,9 @@ void loop()
     theMap.updateWithLidarReadings({front});
     if(theMap.hasChanged()) {
       myTrace.println(allSensors.getLastDistance(0));
-      theMap.printMap(); // Print the updated map
+      //theMap.printMap(); // Print the updated map
+      // display themap on the tft screen in a simple way (for example, as a grid of colored squares)
+      theScreen.showMap();
     }
   }
   theMap.loop();

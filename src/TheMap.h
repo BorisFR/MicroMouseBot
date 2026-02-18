@@ -5,30 +5,6 @@
 #include <vector>
 #include <string>
 
-// unit is centimeter
-#define CELL_SIZE 18
-#define CELLS_BY_WIDTH 2
-#define CELLS_BY_HEIGHT 1
-#define MAP_WIDTH (CELL_SIZE * CELLS_BY_WIDTH) // 288 cm
-#define MAP_HEIGHT (CELL_SIZE * CELLS_BY_HEIGHT) // 288 cm
-// 288*288 cm map, divided into 16*16 cells of 18*18 cm each
-// 82944 bytes for the occupancy grid
-
-// The map is represented as a 2D grid of cells, where each cell can be in one of three states:
-enum CellState
-{
-    CELL_UNKNOWN = -1,
-    CELL_FREE = 0,
-    CELL_OCCUPIED = 1
-};
-
-struct BotPose
-{
-    uint16_t x;  // centimeters
-    uint16_t y;  // centimeters
-    float theta; // radians
-};
-
 struct LidarReading
 {
     float angle;       // radians
@@ -90,7 +66,12 @@ public:
             uint16_t distance = reading.distance;
             int cellX = static_cast<int>(botPose.x + distance * cos(angle));
             int cellY = static_cast<int>(botPose.y + distance * sin(angle));
-            updateCell(cellX, cellY, CELL_OCCUPIED);
+            if(distance > CELL_DISTANCE_THRESHOLD) {
+                updateCell(cellX, cellY, CELL_PERHAPS_OCCUPIED);
+            }
+            else {
+                updateCell(cellX, cellY, CELL_OCCUPIED);
+            }
         }
     }
 
@@ -124,14 +105,14 @@ public:
                     row += ".";
                 else if (state == CELL_OCCUPIED)
                     row += "#";
+                else if (state == CELL_PERHAPS_OCCUPIED)
+                    row += "o";
             }
             myTrace.println(row);
         }
     }
 
-private:
-    int8_t occupancyGrid[MAP_WIDTH][MAP_HEIGHT];
-    BotPose botPose; // Current pose of the robot
+private:    
     bool changedMap = false;
 
     void initializeGrid()
