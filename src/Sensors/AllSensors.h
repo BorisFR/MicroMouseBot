@@ -44,19 +44,38 @@ public:
             sensorVL53L0X[i].loop();
             if (sensorVL53L0X[i].hasChanged())
             {
-                uint16_t distance = sensorVL53L0X[i].getLastDistance();
-                myTrace.print("VL53L0X [");
+                //uint16_t distance = sensorVL53L0X[i].getLastDistance();
+                /*myTrace.print("VL53L0X [");
                 myTrace.printDEC(i);
                 myTrace.print("]: ");
                 myTrace.printDEC(distance);
-                myTrace.println(" mm");
+                myTrace.println(" mm");*/
+                changed = true;
             }
         }
+    }
+
+    bool hasChanged()
+    {
+        if (changed)
+        {
+            changed = false;
+            return true;
+        }
+        return false;
+    }
+
+    uint16_t getLastDistance(uint8_t sensorIndex)
+    {
+        if (sensorIndex < VL53L0X_COUNT)
+            return sensorVL53L0X[sensorIndex].getLastDistance();
+        return 0;
     }
 
 private:
     HubPCA9548A hubPCA9548A;
     SensorVL53L0X sensorVL53L0X[VL53L0X_COUNT]; // 1 sensor on channel 0
+    bool changed = false;
 
     void doFullScan()
     {

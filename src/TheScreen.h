@@ -27,6 +27,7 @@ VCC
 #include "Globals.h"
 #include "TFT_eSPI.h"
 
+#define TFT_ROTATE 2
 #define TFT_GREY 0x7BEF
 
 class TheScreen
@@ -40,19 +41,15 @@ public:
     {
         myTrace.println("🖥️ setup");
         theScreen.init();
-        theScreen.setRotation(1);
+        theScreen.setRotation(TFT_ROTATE);
         theScreen.fillScreen(TFT_BLACK);
-
-        theScreen.fillRect(0, 0, 319, 14, TFT_RED);
-
-        theScreen.fillRect(0, 226, 319, 14, TFT_GREY);
-
-        theScreen.setTextColor(TFT_BLACK, TFT_RED);
-        theScreen.drawCentreString("* TFT_eSPI *", 160, 4, 1);
-        theScreen.setTextColor(TFT_YELLOW, TFT_GREY);
-        theScreen.drawCentreString("Adapted by Bodmer", 160, 228, 1);
-
-        theScreen.drawRect(0, 14, 319, 211, TFT_BLUE);
+        theScreen.fillRect(0, 0, currentWidth() - 1, 14, TFT_RED);
+        theScreen.fillRect(0, currentHeight() - 14, currentWidth() - 1, 14, TFT_DARKGREEN);
+        theScreen.setTextColor(TFT_WHITE, TFT_RED);
+        theScreen.drawCentreString("* TFT_eSPI *", currentWidth() / 2, 4, 1);
+        theScreen.setTextColor(TFT_CYAN, TFT_DARKGREEN);
+        theScreen.drawCentreString("Adapted by Boris", currentWidth() / 2, currentHeight() - 14 + 4, 1);
+        theScreen.drawRect(0, 14, currentWidth() - 1, currentHeight() - 28, TFT_BLUE);
     }
 
     void loop()
@@ -62,6 +59,28 @@ public:
 
 private:
     TFT_eSPI theScreen; // Create an instance of the TFT_eSPI class
+
+    int32_t currentWidth() { 
+        switch(theScreen.getRotation()) {
+            case 0:
+            case 2:
+                return TFT_WIDTH;
+            case 1:
+            case 3:
+                return TFT_HEIGHT;
+        }
+    }
+
+    int32_t currentHeight() { 
+        switch(theScreen.getRotation()) {
+            case 0:
+            case 2:
+                return TFT_HEIGHT;
+            case 1:
+            case 3:
+                return TFT_WIDTH;
+        }
+    }
 };
 
 #endif // THE_SCREEN_H

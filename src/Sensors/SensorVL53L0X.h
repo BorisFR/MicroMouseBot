@@ -7,8 +7,11 @@
 #include "elapsedMillis.h"
 
 #define VL53L0X_LONG_RANGE
+// one or the other of these can be defined, but not both at the same time
 #define VL53L0X_HIGH_ACCURACY
 // #define VL53L0X_HIGH_SPEED
+#define VL53L0X_MAX_DISTANCE 200 // cm
+#define VL53L0X_MIN_DISTANCE 3 // cm
 
 #define VL53L0X_DELAY_BETWEEN_READS 200 // ms
 
@@ -58,14 +61,14 @@ public:
         if (timeElapsed < VL53L0X_DELAY_BETWEEN_READS)
             return;
         timeElapsed = 0;
-        uint16_t distance = sensor.readRangeContinuousMillimeters();
+        uint16_t distance = sensor.readRangeContinuousMillimeters() / 10; // Convert to cm
         if (sensor.timeoutOccurred())
         {
             myTrace.println("VL53L0X timeout");
         }
         else
         {
-            if (distance != lastDistance)
+            if (distance < VL53L0X_MAX_DISTANCE && distance > VL53L0X_MIN_DISTANCE && distance != lastDistance)
             {
                 lastDistance = distance;
                 changed = true;
