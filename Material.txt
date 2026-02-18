@@ -1,0 +1,142 @@
+
+Horloge temps réel (RTC) : DS3231
+==========================
+Nécessite une pile rechargeable : LIR2032
+Address RTC : 0x68
+Address EEPROM : 0x57
+Lib : RTCLIB by Adafruit
+
+Ecran : ILI8341 240x320 SPI avec Touch
+=======
+Soudé J1 pour passer de 5V à 3.3V
+Lib : TFT_eSPI by Bodmer
+
+
+ESP32-S3 : ESP32-S3R8n16 PID 0x303a / VID 0x1001 N16R8 => 16MB (Quad SPI) PSRAM 8MB (Octal SPI)
+==========
+https://github.com/platformio/platform-espressif32/blob/master/boards/4d_systems_esp32s3_gen4_r8n16.json
+26 à 32 : NON
+0, 3, 45, 46 : non plus
+19, 20 : usb serial / JTAG
+39 à 42 : JTAG
+43/44 : UART0
+33 à 37 : euh...
+OK
+1, 2
+4 à 14 à 18
+9 à 14 : SPI 2
+
+
+20 canaux de convertisseur analogique-numérique (ADC)
+4 interfaces SPI
+3 interfaces UART
+2 interfaces I2C
+8 canaux de sortie PWM
+2 interfaces I2S
+14 GPIO à détection capacitive
+
+Les GPIO 26 à 32 sont connectés au flash SPI et à la PSRAM intégrés et ne sont pas recommandés pour d’autres 
+utilisations. Ils ne sont pas exposés dans ce tableau particulier, mais s’ils sont exposés sur votre 
+tableau, évitez de les utiliser :
+GPIO 26 (Flash/PSRAM SPICS1)
+GPIO 27 (Flash/PSRAM SPIHD)
+GPIO 28 (Flash/PSRAM SPIWP)
+GPIO 29 (Flash/PSRAM SPICS0)
+GPIO 30 (Flash/PSRAM SPICLK)
+GPIO 31 (Flash/PSRAM SPIQ)
+GPIO 32 (SPID Flash/PSRAM)
+
+Ces capteurs tactiles internes sont connectés à ces GPIO :
+T1 (GPIO1)
+T2 (GPIO2)
+T3 (GPIO3)
+T4 (GPIO4)
+T5 (GPIO5)
+T6 (GPIO6)
+T7 (GPIO7)
+T8 (GPIO8)
+T9 (GPIO9)
+T10 (GPIO10)
+T11 (GPIO11)
+T12 (GPIO12)
+T13 (GPIO13)
+T14 (GPIO14)
+
+L’ESP32 dispose de 20 canaux d’entrée ADC 12 bits. Voici les GPIO qui peuvent être utilisés comme ADC 
+et les canaux respectifs :
+Cela signifie que vous pouvez obtenir des lectures analogiques allant de 0 à 4095, 
+dans lesquelles 0 correspond à 0 V et 4095 à 3,3 V.
+ADC1_CH0 (GPIO1)
+ADC1_CH1 (GPIO2)
+ADC1_CH2 (GPIO3)
+ADC1_CH3 (GPIO4)
+ADC1_CH4 (GPIO5)
+ADC1_CH5 (GPIO6)
+ADC1_CH6 (GPIO7)
+ADC1_CH7 (GPIO8)
+ADC1_CH8 (GPIO9)
+ADC1_CH9 (GPIO10)
+ADC2_CH0 (GPIO11)
+ADC2_CH1 (GPIO12)
+ADC2_CH2 (GPIO13)
+ADC2_CH3 (GPIO14)
+ADC2_CH4 (GPIO15)
+ADC2_CH5 (GPIO16)
+ADC2_CH6 (GPIO17)
+ADC2_CH7 (GPIO18)
+ADC2_CH8 (GPIO19)
+ADC2_CH9 (GPIO20)
+
+Il existe un support RTC GPIO sur l’ESP32-S3. Les GPIO acheminés vers le sous-système RTC basse consommation 
+peuvent être utilisés lorsque l’ESP32 est en veille profonde. Ces GPIO RTC peuvent être utilisés pour 
+sortir l’ESP32 d’une veille profonde lorsque le coprocesseur Ultra Low Power (ULP) est en cours d’exécution. 
+Les GPIO suivants peuvent être utilisés comme source de réveil externe.
+RTC_GPIO0 (GPIO0)
+RTC_GPIO1 (GPIO1)
+RTC_GPIO2 (GPIO2)
+RTC_GPIO3 (GPIO3)
+RTC_GPIO4 (GPIO4)
+RTC_GPIO5 (GPIO5)
+RTC_GPIO6 (GPIO6)
+RTC_GPIO7 (GPIO7)
+RTC_GPIO8 (GPIO8)
+RTC_GPIO9 (GPIO9)
+RTC_GPIO10 (GPIO10)
+RTC_GPIO11 (GPIO11)
+RTC_GPIO12 (GPIO12)
+RTC_GPIO13 (GPIO13)
+RTC_GPIO14 (GPIO14)
+RTC_GPIO15 (GPIO15)
+RTC_GPIO16 (GPIO16)
+RTC_GPIO17 (GPIO17)
+RTC_GPIO18 (GPIO18)
+RTC_GPIO19 (GPIO19)
+RTC_GPIO20 (GPIO20)
+RTC_GPIO21 (GPIO21)
+
+Lorsque vous utilisez l’ESP32-S3 avec l’IDE Arduino, voici les broches par défaut de l’ESP32 I2C :
+GPIO8 (SDA)
+GPIO9 (SCL)
+
+L’ESP32 intègre 4 périphériques SPI : SPI0, SPI1, SPI2 (communément appelé HSPI) et SPI3 (communément appelé VSPI).
+SP0 et SP1 sont utilisés en interne pour communiquer avec la mémoire flash intégrée et vous ne devez pas les 
+utiliser pour d’autres tâches.
+Vous pouvez utiliser HSPI et VSPI pour communiquer avec d’autres appareils. HSPI et VSPI ont des signaux de 
+bus indépendants.
+IPS	            MOSI	MISO	CLK	    CS
+HSPI (SPI 2)	GPIO11	GPIO13	GPIO12	GPIO10
+VSPI (SPI 3)	GPIO35	GPIO37	GPIO36	GPIO39
+
+
+Port UART	Émission	RX	Remarques
+UART0	GPIO43	GPIO44	Ne peut pas être modifié
+UART1	GPIO17	GPIO18	Peut être attribué à d’autres GPIO
+UART2	—	—	Attribuez les épingles de votre choix
+
+Utilisé par le boot, donc ne pas utiliser
+GPIO0
+GPIO3
+GPIO45
+GPIO46
+
+
