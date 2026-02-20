@@ -13,11 +13,15 @@ TheCar theCar = TheCar();
 CellState occupancyGrid[MAP_WIDTH][MAP_HEIGHT];
 BotPose botPose;
 
+//#include "TheTouch.h"
+//TheTouch theTouch = TheTouch();
+
 void setup()
 {
   myTrace.println(" 🤖 *** MicroMouse BOT ***");
   boardLed.setup();
   boardLed.setColorGreen();
+  theScreen.setup();
   allSensors.setup();
   allSensors.eventErrorHub([]()
                            {
@@ -43,11 +47,11 @@ void setup()
                                 } });
   allSensors.begin();
   theMap.setup();
-  theScreen.setup();
   theCar.setup();
   // theMap.printMap();
   //theScreen.showMap();
   theCar.showOnScreen();
+  //theTouch.setup();
 }
 
 void loop()
@@ -76,5 +80,6 @@ void loop()
   }
   theMap.loop();
   theCar.loop();
+  //theTouch.loop();
   theScreen.loop();
 }

@@ -31,6 +31,42 @@ https://learn.adafruit.com/how-to-fuse-motion-sensor-data-into-ahrs-orientation-
 ESP32-S3 : ESP32-S3R8n16 PID 0x303a / VID 0x1001 N16R8 => 16MB (Quad SPI) PSRAM 8MB (Octal SPI)
 ==========
 https://github.com/platformio/platform-espressif32/blob/master/boards/4d_systems_esp32s3_gen4_r8n16.json
+
+
+                    3.3             GND
+                    3.3             TX
+                    RST             RX
+                    4               1   SDA
+                    5               2   SCL
+                    6               42
+                    7               41
+                    15              40
+                    16              39  XPT2046 TOUCH IRQ
+                    17              38  XPT2046 TOUCH CS
+ILI9341 BackLight   18              37  XPT2046 TOUCH MISO
+ILI9341 RST         8               36  XPT2046 TOUCH SCK
+               JTAG 3               35  XPT2046 TOUCH MOSI
+                    46              0 BOOT
+ILI9341 DC          9               45 VPSI
+ILI9341 CS          10              48
+ILI9341 MOSI        11              47
+ILI9341 SCLK        12              21
+ILI9341 MISO        13              20 USB_D+
+                    14              19 USB_D-
+                    5V              GND
+                    GND5V           GND
+
+48 LED
+
+
+T_IRQ
+T_DO  => MISO
+T_DIN => MOSI
+T_CS
+T_CLK
+
+
+
 26 à 32 : NON
 0, 3, 45, 46 : non plus
 19, 20 : usb serial / JTAG
