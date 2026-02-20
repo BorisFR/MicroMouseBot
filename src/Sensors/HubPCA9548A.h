@@ -20,19 +20,23 @@ public:
     void setup()
     {
         myTrace.println("HubPCA9548A setup");
-        selectChannel(0);
     }
 
     void selectChannel(uint8_t channel)
     {
+        if(channel == currentChannel)
+            return;
         if (channel > 7)
             return;
         Wire.beginTransmission(PCA9548A_ADDRESS);
         Wire.write(1 << channel);
         Wire.endTransmission();
+        currentChannel = channel;
+        vTaskDelay(1);
     }
 
 private:
+    int8_t currentChannel = -1;
 };
 
 #endif // HUB_PCA9548A_H

@@ -22,7 +22,6 @@ public:
     {
         myTrace.println("🗺️ setup");
         initializeGrid();
-        botPose = {1, 1, 0.0f}; // Start at (1, 1) facing right (0 radians)
     }
 
     void loop()

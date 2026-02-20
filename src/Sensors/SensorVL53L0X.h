@@ -11,7 +11,7 @@
 #define VL53L0X_HIGH_ACCURACY
 // #define VL53L0X_HIGH_SPEED
 #define VL53L0X_MAX_DISTANCE 200 // cm
-#define VL53L0X_MIN_DISTANCE 3 // cm
+#define VL53L0X_MIN_DISTANCE 3   // cm
 
 #define VL53L0X_DELAY_BETWEEN_READS 200 // ms
 
@@ -32,6 +32,7 @@ public:
             myTrace.println("Failed to detect and initialize VL53L0X sensor!");
             return;
         }
+        myTrace.println("VL53L0X sensor initialized");
         isInitialized = true;
 #if defined VL53L0X_LONG_RANGE
         // lower the return signal rate limit (default is 0.25 MCPS)
@@ -64,16 +65,38 @@ public:
         uint16_t distance = sensor.readRangeContinuousMillimeters() / 10; // Convert to cm
         if (sensor.timeoutOccurred())
         {
-            myTrace.println("VL53L0X timeout");
+            // myTrace.println("VL53L0X timeout");
+            inErrorState = true;
+            countError++;
+            if (countError == VL53L0X_ERROR_READING_COUNT_THRESHOLD && theCallback)
+                theCallback();
+            if (countError > VL53L0X_ERROR_READING_COUNT_THRESHOLD)
+                countError--; // prevent overflow
         }
         else
         {
-            if (distance < VL53L0X_MAX_DISTANCE && distance > VL53L0X_MIN_DISTANCE && distance != lastDistance)
+            inErrorState = false;
+            countError = 0;
+            if (distance < VL53L0X_MAX_DISTANCE && distance >= VL53L0X_MIN_DISTANCE && distance != lastDistance)
             {
                 lastDistance = distance;
                 changed = true;
             }
         }
+    }
+
+    bool isInitializedSuccessfully()
+    {
+        return isInitialized;
+    }
+
+    bool isInErrorState()
+    {
+        if (countError >= VL53L0X_ERROR_READING_COUNT_THRESHOLD)
+        {
+            return true;
+        }
+        return false;
     }
 
     bool hasChanged()
@@ -91,9 +114,17 @@ public:
         return lastDistance;
     }
 
+    void eventError(EVENT_ERROR callback)
+    {
+        theCallback = callback;
+    }
+
 private:
     VL53L0X sensor;
     bool isInitialized = false;
+    bool inErrorState = false;
+    uint8_t countError = 0;
+    EVENT_ERROR theCallback;
     elapsedMillis timeElapsed;
     bool changed = false;
     uint16_t lastDistance = 0;

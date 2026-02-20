@@ -1,4 +1,9 @@
 
+GPIO extender via I2C : CH423
+=======================
+16 GPO (OUT) + 8 GPIO (In/Out) avec interrupt
+address I2C: de 0x20 à 0x3F
+
 Horloge temps réel (RTC) : DS3231
 ==========================
 Nécessite une pile rechargeable : LIR2032
@@ -10,6 +15,17 @@ Ecran : ILI8341 240x320 SPI avec Touch
 =======
 Soudé J1 pour passer de 5V à 3.3V
 Lib : TFT_eSPI by Bodmer
+
+
+Adafruit LSM6DSOX + LIS3MDL - Precision 9 DoF IMU - STEMMA QT / Qwiic
+https://github.com/adafruit/Adafruit_AHRS
+https://www.adafruit.com/product/4517
+https://cdn-learn.adafruit.com/downloads/pdf/how-to-fuse-motion-sensor-data-into-ahrs-orientation-euler-quaternions.pdf
+
+LSM6DS3TR-C
+https://www.adafruit.com/product/5543
+https://learn.adafruit.com/how-to-fuse-motion-sensor-data-into-ahrs-orientation-euler-quaternions
+
 
 
 ESP32-S3 : ESP32-S3R8n16 PID 0x303a / VID 0x1001 N16R8 => 16MB (Quad SPI) PSRAM 8MB (Octal SPI)

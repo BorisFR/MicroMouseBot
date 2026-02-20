@@ -40,16 +40,16 @@ public:
     void setup()
     {
         myTrace.println("🖥️ setup");
-        theScreen.init();
-        theScreen.setRotation(TFT_ROTATE);
-        theScreen.fillScreen(TFT_BLACK);
-        theScreen.fillRect(0, 0, currentWidth() - 1, 14, TFT_RED);
-        theScreen.fillRect(0, currentHeight() - 14, currentWidth() - 1, 14, TFT_DARKGREEN);
-        theScreen.setTextColor(TFT_WHITE, TFT_RED);
-        theScreen.drawCentreString("* MicroMouse *", currentWidth() / 2, 4, 1);
-        theScreen.setTextColor(TFT_CYAN, TFT_DARKGREEN);
-        theScreen.drawCentreString("By Boris", currentWidth() / 2, currentHeight() - 14 + 4, 1);
-        theScreen.drawRect(0, 14, currentWidth() - 1, currentHeight() - 28, TFT_BLUE);
+        display.init();
+        display.setRotation(TFT_ROTATE);
+        display.fillScreen(TFT_BLACK);
+        display.fillRect(0, 0, currentWidth() - 1, 14, TFT_RED);
+        display.fillRect(0, currentHeight() - 14, currentWidth() - 1, 14, TFT_DARKGREEN);
+        display.setTextColor(TFT_WHITE, TFT_RED);
+        display.drawCentreString("* MicroMouse *", currentWidth() / 2, 4, 1);
+        display.setTextColor(TFT_CYAN, TFT_DARKGREEN);
+        display.drawCentreString("By Boris", currentWidth() / 2, currentHeight() - 14 + 4, 1);
+        display.drawRect(0, 14, currentWidth() - 1, currentHeight() - 28, TFT_BLUE);
     }
 
     void loop()
@@ -91,7 +91,7 @@ public:
                     else if (occupancyGrid[x][y] == CELL_PERHAPS_OCCUPIED)
                         color = TFT_YELLOW;
                 }
-                theScreen.fillRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize, color);
+                display.fillRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize, color);
             }
         }
         if (cellSize >= 3)
@@ -99,20 +99,20 @@ public:
             // Optionally, you can also draw grid lines
             for (int x = 0; x <= MAP_WIDTH; x++)
             {
-                theScreen.drawLine(offsetX + x * cellSize, offsetY, offsetX + x * cellSize, offsetY + MAP_HEIGHT * cellSize, TFT_BLACK);
+                display.drawLine(offsetX + x * cellSize, offsetY, offsetX + x * cellSize, offsetY + MAP_HEIGHT * cellSize, TFT_BLACK);
             }
             for (int y = 0; y <= MAP_HEIGHT; y++)
             {
-                theScreen.drawLine(offsetX, offsetY + y * cellSize, offsetX + MAP_WIDTH * cellSize, offsetY + y * cellSize, TFT_BLACK);
+                display.drawLine(offsetX, offsetY + y * cellSize, offsetX + MAP_WIDTH * cellSize, offsetY + y * cellSize, TFT_BLACK);
             }
             // Optionally, you can also draw grid lines
             for (int x = 0; x <= MAP_WIDTH; x++)
             {
-                theScreen.drawLine(offsetX + x * cellSize, offsetY, offsetX + x * cellSize, offsetY + MAP_HEIGHT * cellSize, TFT_BLACK);
+                display.drawLine(offsetX + x * cellSize, offsetY, offsetX + x * cellSize, offsetY + MAP_HEIGHT * cellSize, TFT_BLACK);
             }
             for (int y = 0; y <= MAP_HEIGHT; y++)
             {
-                theScreen.drawLine(offsetX, offsetY + y * cellSize, offsetX + MAP_WIDTH * cellSize, offsetY + y * cellSize, TFT_BLACK);
+                display.drawLine(offsetX, offsetY + y * cellSize, offsetX + MAP_WIDTH * cellSize, offsetY + y * cellSize, TFT_BLACK);
             }
         }
     }
@@ -120,16 +120,12 @@ public:
     unsigned int colorFromRGB(uint8_t r, uint8_t g, uint8_t b)
     {
         // colour = red << 11 | green << 5 | blue;
-        return theScreen.color565(r, g, b);
+        return display.color565(r, g, b);
     }
-
-private:
-    TFT_eSPI theScreen; // Create an instance of the TFT_eSPI class
-    CellState oldGrid[MAP_WIDTH][MAP_HEIGHT];
 
     int32_t currentWidth()
     {
-        switch (theScreen.getRotation())
+        switch (display.getRotation())
         {
         case 0:
         case 2:
@@ -138,11 +134,12 @@ private:
         case 3:
             return TFT_HEIGHT;
         }
+        return 0; // Should never reach here
     }
 
     int32_t currentHeight()
     {
-        switch (theScreen.getRotation())
+        switch (display.getRotation())
         {
         case 0:
         case 2:
@@ -151,7 +148,24 @@ private:
         case 3:
             return TFT_WIDTH;
         }
+        return 0; // Should never reach here
     }
+
+    void fillRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color)
+    {
+        display.fillRect(x, y, w, h, color);
+    }
+
+    uint32_t blue() { return TFT_BLUE; }
+    uint32_t red() { return TFT_RED; }
+    uint32_t green() { return TFT_GREEN; }
+    uint32_t yellow() { return TFT_YELLOW; }
+    uint32_t orange() { return colorFromRGB(255, 165, 0); }
+    
+private:
+    TFT_eSPI display; // Create an instance of the TFT_eSPI class
+    CellState oldGrid[MAP_WIDTH][MAP_HEIGHT];
+
 };
 
 #endif // THE_SCREEN_H

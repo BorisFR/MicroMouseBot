@@ -14,12 +14,29 @@
 #define NTP_SYNC_TIMEOUT 60
 #define NTP_TIMEZONE "Europe/Paris"
 
-// Display
+#define EVENT_ERROR std::function<void()>
 
 
 #include "MyTrace.h"
 extern MyTrace myTrace;
 
+// Sensors
+#define BUS_TO_SCAN 5
+#define VL53L0X_COUNT 5
+#define VL53L0X_ERROR_READING_COUNT_THRESHOLD 5
+#define CAR_SENSOR_FRONT_INDEX 0
+#define CAR_SENSOR_LEFT_INDEX 1
+#define CAR_SENSOR_RIGHT_INDEX 2
+#define CAR_SENSOR_TOP_LEFT_INDEX 3
+#define CAR_SENSOR_TOP_RIGHT_INDEX 4
+#define CAR_SENSOR_FRONT_DIRECTION 0.0f
+#define CAR_SENSOR_LEFT_DIRECTION (PI / 2)
+#define CAR_SENSOR_RIGHT_DIRECTION (-PI / 2)
+#define CAR_SENSOR_TOP_LEFT_DIRECTION (PI / 4)
+#define CAR_SENSOR_TOP_RIGHT_DIRECTION (-PI / 4)
+
+#include "Sensors/AllSensors.h"
+extern AllSensors allSensors;
 
 // unit is centimeter
 #define CELL_SIZE 18
@@ -51,5 +68,15 @@ struct BotPose
 };
 
 extern BotPose botPose; // Current pose of the robot
+
+#include "TheScreen.h"
+extern TheScreen theScreen;
+
+#include "TheMap.h"
+extern TheMap theMap;
+
+#include "TheCar.h"
+extern TheCar theCar;
+
 
 #endif // GLOBALS_H
