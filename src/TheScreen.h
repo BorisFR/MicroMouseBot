@@ -92,6 +92,16 @@ public:
         forceMapRedraw();
     }
 
+    void setPose(BotPose *poseRef)
+    {
+        pose = poseRef;
+    }
+
+    void setMap(const TheMap *mapRef)
+    {
+        map = mapRef;
+    }
+
     /// @brief Main loop for the screen, currently only checks for touch input. In the future, this could be expanded to handle screen updates or animations.
     void loop()
     {
@@ -166,7 +176,7 @@ public:
         {
             showIMU();
             return;
-        }    
+        }
     }
 
     // ************************************************************************
@@ -314,13 +324,15 @@ public:
             return; // Only refresh sensors on screen if we are in the CAR screen state
         if (!initialized)
             return; // Don't show sensors on screen until the car is initialized
+        if (!pose)
+            return;
         // display the current orientation of the car using a simple arrow
         int arrowX = carOffsetX + CAR_WIDTH * CAR_SCALE_CM_TO_SCREEN / 2;
         int arrowY = carOffsetY + CAR_LENGTH * CAR_SCALE_CM_TO_SCREEN / 2;
         int arrowLength = 10;
         int arrowWidth = 3;
-        int endX = arrowX + arrowLength * cos(botPose.theta);
-        int endY = arrowY - arrowLength * sin(botPose.theta);
+        int endX = arrowX + arrowLength * cos(pose->theta);
+        int endY = arrowY - arrowLength * sin(pose->theta);
         display.fillCircle(arrowX, arrowY, arrowLength + 2, TFT_BLACK);
         // draw an arrow from (arrowX, arrowY) to (endX, endY) with the specified width and color
         display.drawLine(arrowX, arrowY, endX, endY, green());
@@ -356,31 +368,34 @@ public:
     {
         if (currentScreen != SCREEN_MAP)
             return; // Only show map if we are in the MAP screen state
+        if (!map)
+            return;
         // Display the map on the TFT screen in a simple way (for example, as a grid of colored squares)
         // You can iterate through the occupancy grid and draw rectangles for each cell based on its state
         for (int x = 0; x < MAP_WIDTH; x++)
         {
             for (int y = 0; y < MAP_HEIGHT; y++)
             {
-                if (occupancyGrid[x][y] == oldGrid[x][y])
+                CellState current = map->getCellState(x, y);
+                if (current == oldGrid[x][y])
                 {
                     continue; // No change, skip drawing
                 }
-                oldGrid[x][y] = occupancyGrid[x][y]; // Update oldGrid with new value
+                oldGrid[x][y] = current; // Update oldGrid with new value
                 uint16_t color;
-                if (x == botPose.x && y == botPose.y)
+                if (pose && x == pose->x && y == pose->y)
                 {
                     color = TFT_GREEN; // Robot's current position
                 }
                 else
                 {
-                    if (occupancyGrid[x][y] == CELL_UNKNOWN)
+                    if (current == CELL_UNKNOWN)
                         color = TFT_GREY;
-                    else if (occupancyGrid[x][y] == CELL_FREE)
+                    else if (current == CELL_FREE)
                         color = TFT_DARKGREEN;
-                    else if (occupancyGrid[x][y] == CELL_OCCUPIED)
+                    else if (current == CELL_OCCUPIED)
                         color = TFT_RED;
-                    else if (occupancyGrid[x][y] == CELL_PERHAPS_OCCUPIED)
+                    else if (current == CELL_PERHAPS_OCCUPIED)
                         color = TFT_YELLOW;
                 }
                 display.fillRect(mapOffsetX + x * mapCellSize, mapOffsetY + y * mapCellSize, mapCellSize, mapCellSize, color);
@@ -601,6 +616,8 @@ private:
     int32_t carOffsetX = 0;
     int32_t carOffsetY = 0;
     bool initialized = false;
+    BotPose *pose = nullptr;
+    const TheMap *map = nullptr;
 };
 
 #endif // THE_SCREEN_H

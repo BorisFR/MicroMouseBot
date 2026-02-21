@@ -1,39 +1,42 @@
-# Plan: MicroMouseBot Development Roadmap
+# Plan: MicroMouseBot Roadmap Rafraichie
 
-**TL;DR**: Ce robot autonome de résolution de labyrinthe dispose d'une base solide avec 5 capteurs ToF, cartographie par grille d'occupation, et visualisation sur écran TFT. Le projet nécessite l'implémentation du contrôle moteur, l'intégration de l'IMU, des algorithmes SLAM appropriés avec marquage d'espace libre, et une logique de planification de chemin pour atteindre la navigation autonome. État actuel : ~40% complété avec toute l'infrastructure de capteurs fonctionnelle mais sans actionnement ni algorithmes de navigation.
+Le socle capteurs et affichage est deja en place (hub I2C, VL53L0X, ecran TFT). Les prochaines etapes critiques restent la cartographie avec espace libre, le controle moteur et odometrie, l'integration IMU et la navigation. Le plan corrige les references (fonction de map, environnement PlatformIO) et ajoute une clarification du systeme de coordonnees. Il conserve l'architecture actuelle et cible les points qui bloquent l'autonomie.
 
-## Étapes
+## Etat actuel
 
-1. **Corriger l'algorithme de cartographie** - Modifier `updateMap()` dans [TheMap.h](src/TheMap.h) pour implémenter le ray-tracing : marquer les cellules le long des faisceaux des capteurs comme `CELL_FREE` avant de marquer les points finaux comme `CELL_OCCUPIED`, empêchant le comportement d'accumulation uniquement
+| Fait | A faire |
+| --- | --- |
+| Capteurs ToF VL53L0X actifs via hub I2C et boucle de lecture fonctionnelle. | P1: Controle moteur et odometrie non implementes. |
+| Affichage TFT operationnel avec vues et rafraichissement optimise. | P2: IMU/compas simule, integration reelle a faire. |
+| Cartographie d'obstacles fonctionnelle, mais sans marquage d'espace libre. | P3: Planification de chemin et navigation autonome non implementees. |
 
-2. **Implémenter le contrôle moteur** - Compléter les stubs de [TheCar.h](src/TheCar.h) (`moveForward()`, `turn()`, `stop()`) avec le code PWM réel du driver moteur, ajouter la lecture des encodeurs pour l'odométrie, implémenter le contrôle de vitesse avec PID
+## Steps
 
-3. **Intégrer IMU/Compass** - Compléter [TheCompass.h](src/TheCompass.h) en utilisant le matériel LSM6DS3TR-C + LIS3MDL, implémenter les routines de calibration, ajouter un filtre complémentaire ou filtre de Kalman pour la fusion d'orientation
+1. Corriger la cartographie pour marquer l'espace libre via ray-tracing dans [src/TheMap.h](src/TheMap.h#L47-L79) en modifiant `updateWithLidarReadings()` et en bornant les indices de grille.
 
-4. **Ajouter l'estimation de pose** - Mettre à jour `botPose` dans la boucle de [main.cpp](src/main.cpp) en fusionnant l'odométrie des roues, l'orientation IMU, et optionnellement le scan matching des capteurs ; ajouter la vérification des limites pour la carte de 90×90cm
+2. Reparer la coherence coordonnees/cm/grille en clarifiant `CELL_SIZE`, commentaires et indexation dans [src/Globals.h](src/Globals.h#L27-L59), puis ajuster l'usage dans [src/TheMap.h](src/TheMap.h#L47-L79).
 
-5. **Implémenter la planification de chemin** - Créer une nouvelle classe pour l'algorithme A* ou Dijkstra opérant sur la grille d'occupation dans [Globals.h](src/Globals.h), ajouter la définition d'objectif via l'interface tactile dans [TheScreen.h](src/TheScreen.h)
+3. Implementer le controle moteur reel dans [src/TheCar.h](src/TheCar.h#L19-L67) et ajouter l'odometrie (encodeurs) pour mettre a jour la pose.
 
-6. **Ajouter la navigation autonome** - Implémenter une machine à états (EXPLORING, NAVIGATING, STUCK) avec comportements : explorer les zones inconnues, naviguer vers les objectifs, gérer les impasses, intégrer l'arrêt d'urgence depuis les capteurs
+4. Integrer l'IMU reelle et la calibration dans [src/Sensors/TheCompass.h](src/Sensors/TheCompass.h#L13-L86), puis alimenter l'orientation fusionnee dans la boucle principale.
 
-7. **Optimiser le système de coordonnées** - Résoudre l'ambiguïté entre les coordonnées en cm et les indices de tableau dans [TheMap.h](src/TheMap.h), ajouter une vérification explicite des limites dans `updateMap()`, valider les offsets de position des capteurs
+5. Mettre en place l'estimation de pose (fusion odometrie + IMU) dans [src/main.cpp](src/main.cpp#L1-L55).
 
-8. **Ajouter les tâches FreeRTOS** - Refactoriser [main.cpp](src/main.cpp) pour utiliser des tâches séparées pour la lecture des capteurs, les mises à jour de carte, le rafraîchissement de l'affichage, et le contrôle de navigation pour de meilleures performances temps réel
+6. Ajouter la planification de chemin et l'interface de cible dans [src/Globals.h](src/Globals.h) et [src/TheScreen.h](src/TheScreen.h).
 
-## Vérification
+7. Ajouter la navigation autonome (machine a etats) en s'appuyant sur la carte et les capteurs.
 
-- Téléverser le firmware via PlatformIO (environnement : `esp32-s3-devkitc-1`)
-- Surveiller la sortie série à 115200 bauds pour les lectures des capteurs
-- Vérifier que la visualisation de la carte sur TFT affiche correctement les obstacles
-- Tester les mouvements moteur : avancer de 10cm, tourner de 90°, vérifier la précision de l'odométrie
-- Placer le robot dans un labyrinthe de test, déclencher la navigation autonome, vérifier l'évitement de collision
-- Vérifier que l'orientation IMU correspond à la rotation physique
-- Exécuter la planification de chemin : toucher l'écran pour définir un objectif, vérifier la génération et l'exécution du chemin
+8. Optionnel: separer les taches en FreeRTOS pour ameliorer la reactivite.
 
-## Décisions
+## Verification
 
-- Conserver l'architecture header-only pour la cohérence avec les patterns de code existants
-- Utiliser un filtre complémentaire pour la fusion IMU (plus simple que EKF, suffisant pour cette application)
-- Implémenter la planification de chemin A* plutôt que Dijkstra (meilleures performances avec de bonnes heuristiques pour la navigation en labyrinthe)
-- Maintenir le timing budget de 200ms pour les capteurs (favorise la précision plutôt que la vitesse selon les résultats de l'analyse)
-- Ray-tracer l'espace libre en utilisant l'algorithme de ligne de Bresenham pour l'efficacité
+- Utiliser l'environnement PlatformIO configure dans [platformio.ini](platformio.ini#L1-L48) (env esp32s3usbotg).
+- Verifier la lecture capteurs et la mise a jour de carte sur TFT.
+- Tester les mouvements moteur (avance, rotation, stop) et l'odometrie.
+- Valider la navigation autonome en scenario reel.
+
+## Decisions
+
+- Conserver l'architecture header-only pour coherence.
+- Implementer A* pour la planification.
+- Ajouter le ray-tracing via Bresenham pour l'espace libre.

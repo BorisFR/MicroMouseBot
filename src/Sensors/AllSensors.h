@@ -14,6 +14,13 @@
 class AllSensors
 {
 public:
+    struct SensorFrame
+    {
+        uint16_t distances[VL53L0X_COUNT];
+        float heading;
+        bool headingValid;
+    };
+
     AllSensors() {}
 
     ~AllSensors() { myTrace.println("🕵️ unloaded"); }
@@ -72,6 +79,9 @@ public:
         theCompass.setup();
         theCompass.eventChangeValue([this](float value)
                             {
+            lastHeading = value;
+            changeIMU = true;
+            frameChanged = true;
             if (theCallbackIMU)
                 theCallbackIMU(value); });
         theCompass.eventError([this]()
@@ -93,6 +103,7 @@ public:
                 if (sensorVL53L0X[i].hasChanged())
                 {
                     changedSensorVL53L0X = true;
+                    frameChanged = true;
                 }
             }
         }
@@ -112,6 +123,23 @@ public:
             return true;
         }
         return false;
+    }
+
+    bool getLatestFrame(SensorFrame &frame)
+    {
+        if (!frameChanged)
+        {
+            return false;
+        }
+        frameChanged = false;
+        for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
+        {
+            frame.distances[i] = sensorVL53L0X[i].getLastDistance();
+        }
+        frame.heading = lastHeading;
+        frame.headingValid = isIMUinitializedSuccessfully();
+        changeIMU = false;
+        return true;
     }
 
     uint16_t getLastDistance(uint8_t sensorIndex)
@@ -180,10 +208,12 @@ private:
     HubPCA9548A hubPCA9548A;
     SensorVL53L0X sensorVL53L0X[VL53L0X_COUNT]; // 1 sensor on each hub channel
     bool changedSensorVL53L0X = false;
+    bool frameChanged = false;
     EVENT_CHANGE theCallbackHub;
     EVENT_CHANGE_WITH_UINT8_UINT16 theCallbackSensorWithIndexAndValue;
     TheCompass theCompass;
     bool changeIMU = false;
+    float lastHeading = 0.0f;
     EVENT_CHANGE_WITH_FLOAT theCallbackIMU;
 
     void doFullScan()

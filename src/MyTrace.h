@@ -9,8 +9,6 @@ class MyTrace
 public:
     MyTrace()
     {
-        Serial.begin(115200);
-        vTaskDelay(pdMS_TO_TICKS(500)); // Short delay to allow Serial to initialize
         // Serial.println("📰 loaded");
     }
 
@@ -19,9 +17,11 @@ public:
         Serial.println("📰 unloaded");
     }
 
-    /*void setup() {
-      Serial.println("📰 setup");
-    }*/
+    void setup()
+    {
+        Serial.begin(115200);
+        vTaskDelay(pdMS_TO_TICKS(500)); // Short delay to allow Serial to initialize
+    }
 
     void print(const char *text)
     {

@@ -21,7 +21,6 @@
 #define EVENT_CHANGE_WITH_UINT16 std::function<void(uint16_t index)>
 #define EVENT_CHANGE_WITH_FLOAT std::function<void(float value)>
 
-
 #include "MyTrace.h"
 extern MyTrace myTrace;
 
@@ -66,8 +65,6 @@ enum CellState
 
 #define CELL_DISTANCE_THRESHOLD 100 // cm, if a reading is above this, we mark the cell as "perhaps occupied" instead of "occupied"
 
-extern CellState occupancyGrid[MAP_WIDTH][MAP_HEIGHT];
-
 struct BotPose
 {
     uint16_t x;  // centimeters
@@ -75,13 +72,10 @@ struct BotPose
     float theta; // radians
 };
 
-extern BotPose botPose; // Current pose of the robot
-
 #include "TheMap.h"
 extern TheMap theMap;
 
 #include "TheCar.h"
 extern TheCar theCar;
-
 
 #endif // GLOBALS_H
