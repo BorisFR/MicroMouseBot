@@ -21,9 +21,9 @@ public:
         pinMode(PCA9548A_RESET_PIN, OUTPUT);
         digitalWrite(PCA9548A_RESET_PIN, LOW);
         // wait 2 ms for reset
-        vTaskDelay(2);
+        vTaskDelay(pdMS_TO_TICKS(2));
         digitalWrite(PCA9548A_RESET_PIN, HIGH);
-        vTaskDelay(2);
+        vTaskDelay(pdMS_TO_TICKS(20)); // Short delay to allow hub to reset and be ready for communication
         Wire.beginTransmission(PCA9548A_ADDRESS);
         if (Wire.endTransmission() == 0)
         {
@@ -52,7 +52,7 @@ public:
         Wire.write(1 << channel);
         Wire.endTransmission();
         currentChannel = channel;
-        vTaskDelay(2);
+        //vTaskDelay(pdMS_TO_TICKS(2)); // Short delay to allow channel switching to stabilize
     }
 
 private:

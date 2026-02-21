@@ -24,16 +24,14 @@ public:
         gpio_num_t sclPin = static_cast<gpio_num_t>(SENSORS_SCL_PIN);
         gpio_set_pull_mode(sdaPin, GPIO_PULLUP_ONLY);
         gpio_set_pull_mode(sclPin, GPIO_PULLUP_ONLY);
-        vTaskDelay(2); // Short delay to allow pull-up resistors to stabilize
+        vTaskDelay(pdMS_TO_TICKS(2)); // Short delay to allow pull-up resistors to stabilize
         Wire.begin(SENSORS_SDA_PIN, SENSORS_SCL_PIN);
         Wire.setClock(SENSORS_I2C_SPEED);
-        vTaskDelay(2); // Short delay to allow I2C bus to stabilize
+        vTaskDelay(pdMS_TO_TICKS(2)); // Short delay to allow I2C bus to stabilize
     }
 
     void begin()
     {
-        // myTrace.println("🕵️  Scanning default I2C bus");
-        // doScan();
         hubPCA9548A.setup();
         if (theCallbackHub)
             theCallbackHub();
@@ -44,7 +42,7 @@ public:
         for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
         {
             hubPCA9548A.selectChannel(i);
-            vTaskDelay(2);
+            vTaskDelay(pdMS_TO_TICKS(100)); // Short delay to allow channel switching to stabilize
             sensorVL53L0X[i].setup();
             if (sensorVL53L0X[i].isInitializedSuccessfully())
             {
@@ -64,11 +62,11 @@ public:
                 myTrace.print("🚨 VL53L0X sensor on channel ");
                 myTrace.printDEC(i);
                 myTrace.println(" failed to initialize");
-                if (theCallbackSensors)
-                    theCallbackSensors();
             }
+            if (theCallbackSensors)
+                theCallbackSensors();
         }
-        doFullScan();
+        //doFullScan();
         if (theCallbackSensors)
             theCallbackSensors();
     }
@@ -94,7 +92,7 @@ public:
         }
     }
 
-    bool isHuReady()
+    bool isHubReady()
     {
         return hubPCA9548A.isInitialized();
     }
@@ -178,7 +176,7 @@ private:
                 myTrace.print("🕵️  Unknown error at address 0x");
                 myTrace.printlnHEX(address);
             }
-            vTaskDelay(2);
+            vTaskDelay(pdMS_TO_TICKS(2)); // Short delay to allow I2C bus to stabilize between address checks
         }
         if (nDevices == 0)
             myTrace.println("🕵️  No I2C devices found");

@@ -26,7 +26,7 @@ void setup()
   allSensors.eventErrorHub([]()
                            { myTrace.println("🚨 I2C hub error detected");
                               boardLed.setColorRed(); 
-                              if(allSensors.isHuReady()) {
+                              if(allSensors.isHubReady()) {
                                 myTrace.println("🚨 Hub is ready, checking individual sensors for errors");
                               } else {
                                 myTrace.println("🚨 Hub is not ready, cannot check individual sensors");

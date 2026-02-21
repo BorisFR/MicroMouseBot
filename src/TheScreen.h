@@ -122,7 +122,7 @@ public:
     {
         display.fillRect(4, 35, currentWidth() - 8, 15, TFT_BLACK); // Clear previous status
         display.setTextColor(TFT_WHITE, TFT_BLACK);
-        if (allSensors.isHuReady())
+        if (allSensors.isHubReady())
         {
             showOkIcon(4, 35, 8);
             display.drawString("I2C Hub Ready", 20, 35, 1);
@@ -324,10 +324,10 @@ public:
 
         // Calculate the corners of the rectangle before rotation
         float corners[4][2] = {
-            {x, y},
-            {x + w, y},
-            {x + w, y + h},
-            {x, y + h}};
+            {(float)x, (float)y},
+            {(float)(x + w), (float)y},
+            {(float)(x + w), (float)(y + h)},
+            {(float)x, (float)(y + h)}};
 
         // Rotate each corner around the center
         for (int i = 0; i < 4; i++)

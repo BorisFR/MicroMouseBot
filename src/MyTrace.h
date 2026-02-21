@@ -10,7 +10,7 @@ public:
     MyTrace()
     {
         Serial.begin(115200);
-        delay(500);
+        vTaskDelay(pdMS_TO_TICKS(500)); // Short delay to allow Serial to initialize
         // Serial.println("📰 loaded");
     }
 
