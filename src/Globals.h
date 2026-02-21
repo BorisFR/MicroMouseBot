@@ -21,6 +21,8 @@
 extern MyTrace myTrace;
 
 // Sensors
+#define PCA9548A_ADDRESS 0x70
+#define PCA9548A_RESET_PIN 42
 #define BUS_TO_SCAN 5
 #define VL53L0X_COUNT 5
 #define VL53L0X_ERROR_READING_COUNT_THRESHOLD 5
@@ -50,6 +52,7 @@ extern AllSensors allSensors;
 // The map is represented as a 2D grid of cells, where each cell can be in one of three states:
 enum CellState
 {
+    CELL_REDRAW = -2, // Special state to indicate that a cell needs to be redrawn on the screen (used for optimization)
     CELL_UNKNOWN = -1,
     CELL_FREE = 0,
     CELL_OCCUPIED = 1,
@@ -68,9 +71,6 @@ struct BotPose
 };
 
 extern BotPose botPose; // Current pose of the robot
-
-#include "TheScreen.h"
-extern TheScreen theScreen;
 
 #include "TheMap.h"
 extern TheMap theMap;

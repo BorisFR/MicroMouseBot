@@ -8,8 +8,6 @@
 // I2C multiplexer PCA9548A
 // 8 channels, 12-bit address (0x70-0x77)
 
-#define PCA9548A_ADDRESS 0x70
-
 class HubPCA9548A
 {
 public:
@@ -20,11 +18,33 @@ public:
     void setup()
     {
         myTrace.println("HubPCA9548A setup");
+        pinMode(PCA9548A_RESET_PIN, OUTPUT);
+        digitalWrite(PCA9548A_RESET_PIN, LOW);
+        // wait 2 ms for reset
+        vTaskDelay(2);
+        digitalWrite(PCA9548A_RESET_PIN, HIGH);
+        vTaskDelay(2);
+        Wire.beginTransmission(PCA9548A_ADDRESS);
+        if (Wire.endTransmission() == 0)
+        {
+            myTrace.println("HubPCA9548A detected successfully");
+            initialized = true;
+        }
+        else
+        {
+            myTrace.println("🚨 HubPCA9548A not detected");
+        }
+        selectChannel(7); // Select last channel by default
+    }
+
+    bool isInitialized()
+    {
+        return initialized;
     }
 
     void selectChannel(uint8_t channel)
     {
-        if(channel == currentChannel)
+        if (channel == currentChannel)
             return;
         if (channel > 7)
             return;
@@ -32,11 +52,12 @@ public:
         Wire.write(1 << channel);
         Wire.endTransmission();
         currentChannel = channel;
-        vTaskDelay(1);
+        vTaskDelay(2);
     }
 
 private:
     int8_t currentChannel = -1;
+    bool initialized = false;
 };
 
 #endif // HUB_PCA9548A_H

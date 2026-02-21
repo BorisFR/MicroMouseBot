@@ -30,6 +30,35 @@ VCC
 #define TFT_ROTATE 2
 #define TFT_GREY 0x7BEF
 
+enum ScreenState
+{
+    SCREEN_STATE,
+    SCREEN_CAR,
+    SCREEN_MAP,
+    SCREEN_ERROR
+};
+
+#define SCALE_CM_TO_SCREEN 10                                              // 1 cm in the real world corresponds to 3 pixels on the screen (for visualization purposes)
+#define CAR_WIDTH 8                                                        // cm
+#define CAR_LENGTH 12                                                      // cm
+#define CAR_SENSOR_WIDTH 1.5f                                              // cm, width of the front sensor (for visualization on the screen)
+#define CAR_SENSOR_LENGTH 0.1f                                             // cm, length of the front sensor (for visualization on the screen)
+#define CAR_SENSOR_FRONT_X_OFFSET (CAR_WIDTH / 2 - CAR_SENSOR_WIDTH / 2)   // cm, distance from the center of the car to the front edge where the front sensor is located
+#define CAR_SENSOR_FRONT_Y_OFFSET 0                                        // cm, distance from the center of the car to the front edge where the front sensor is located
+#define CAR_SENSOR_FRONT_ROTATE_OFFSET 0.0f                                // radians, rotation offset of the front sensor relative to the car's forward direction
+#define CAR_SENSOR_LEFT_X_OFFSET -CAR_SENSOR_WIDTH / 2                     // cm, distance from the center of the car to the left edge where the left sensor is located
+#define CAR_SENSOR_LEFT_Y_OFFSET (CAR_LENGTH / 2 - CAR_SENSOR_LENGTH / 2)  // cm, distance from the center of the car to the left edge where the left sensor is located
+#define CAR_SENSOR_LEFT_ROTATE_OFFSET (PI / 2)                             // radians, rotation offset of the left sensor relative to the car's forward direction
+#define CAR_SENSOR_RIGHT_X_OFFSET (CAR_WIDTH - CAR_SENSOR_WIDTH / 2)       // cm, distance from the center of the car to the right edge where the right sensor is located
+#define CAR_SENSOR_RIGHT_Y_OFFSET (CAR_LENGTH / 2 - CAR_SENSOR_LENGTH / 2) // cm, distance from the center of the car to the right edge where the right sensor is located
+#define CAR_SENSOR_RIGHT_ROTATE_OFFSET (-PI / 2)                           // radians, rotation offset of the right sensor relative to the car's forward direction
+#define CAR_SENSOR_TOP_LEFT_X_OFFSET 0                                     // cm, distance from the center of the car to the top left edge where the top left sensor is located
+#define CAR_SENSOR_TOP_LEFT_Y_OFFSET (CAR_SENSOR_WIDTH / 2)                // cm, distance from the center of the car to the top left edge where the top left sensor is located
+#define CAR_SENSOR_TOP_LEFT_ROTATE_OFFSET (-PI / 4)                        // radians, rotation offset of the top left sensor relative to the car's forward direction
+#define CAR_SENSOR_TOP_RIGHT_X_OFFSET (CAR_WIDTH - CAR_SENSOR_WIDTH)       // cm, distance from the center of the car to the top right edge where the top right sensor is located
+#define CAR_SENSOR_TOP_RIGHT_Y_OFFSET (CAR_SENSOR_WIDTH / 2)               // cm, distance from the center of the car to the top right edge where the top right sensor is located
+#define CAR_SENSOR_TOP_RIGHT_ROTATE_OFFSET (PI / 4)                        // radians, rotation offset of the top right sensor relative to the car's forward direction
+
 class TheScreen
 {
 public:
@@ -48,24 +77,150 @@ public:
         display.setTextColor(TFT_WHITE, TFT_RED);
         display.drawCentreString("* MicroMouse *", currentWidth() / 2, 4, 1);
         display.setTextColor(TFT_CYAN, TFT_DARKGREEN);
-        display.drawCentreString("By Boris", currentWidth() / 2, currentHeight() - 14 + 4, 1);
+        display.drawCentreString("(c) 2026 - by Boris", currentWidth() / 2, currentHeight() - 14 + 4, 1);
         display.drawRect(0, 14, currentWidth() - 1, currentHeight() - 28, TFT_BLUE);
+
+        carOffsetX = (currentWidth() - CAR_WIDTH * SCALE_CM_TO_SCREEN) / 2;
+        carOffsetY = (currentHeight() - CAR_LENGTH * SCALE_CM_TO_SCREEN) / 2;
+        initialized = true;
+        uint16_t mapCellWidth = currentWidth() / MAP_WIDTH;
+        uint16_t mapCellHeight = currentHeight() / MAP_HEIGHT;
+        mapCellSize = min(mapCellWidth, mapCellHeight);
+        mapOffsetX = (currentWidth() - (mapCellSize * MAP_WIDTH)) / 2;
+        mapOffsetY = (currentHeight() - (mapCellSize * MAP_HEIGHT)) / 2;
+        forceMapRedraw();
     }
 
     void loop()
     {
-        // Update the display with new information here
+        isTouched();
+    }
+
+    void showStateScreen()
+    {
+        display.setTextColor(TFT_WHITE, TFT_BLACK);
+        display.drawCentreString("State", currentWidth() / 2, 20, 2);
+    }
+
+    void showErrorIcon(int32_t x, int32_t y, int32_t size)
+    {
+        // Draw a simple error icon (e.g., a red X) at the specified position
+        display.fillRect(x, y, size, size, TFT_BLACK);
+        display.drawLine(x, y, x + size, y + size, TFT_RED);
+        display.drawLine(x + size, y, x, y + size, TFT_RED);
+    }
+
+    void showOkIcon(int32_t x, int32_t y, int32_t size)
+    {
+        // Draw a simple OK icon (e.g., a green checkmark) at the specified position
+        display.fillRect(x, y, size, size, TFT_BLACK);
+        display.drawLine(x, y + size / 2, x + size / 3, y + size, TFT_GREEN);
+        display.drawLine(x + size / 3, y + size, x + size, y, TFT_GREEN);
+    }
+
+    void showHubState()
+    {
+        display.fillRect(4, 35, currentWidth() - 8, 15, TFT_BLACK); // Clear previous status
+        display.setTextColor(TFT_WHITE, TFT_BLACK);
+        if (allSensors.isHuReady())
+        {
+            showOkIcon(4, 35, 8);
+            display.drawString("I2C Hub Ready", 20, 35, 1);
+        }
+        else
+        {
+            showErrorIcon(4, 35, 8);
+            display.drawString("I2C Hub Error", 20, 35, 1);
+        }
+    }
+
+    void showAllSensorsState()
+    {
+        display.fillRect(4, 50, currentWidth() - 8, VL53L0X_COUNT * 15, TFT_BLACK); // Clear previous sensor status
+        display.setTextColor(TFT_WHITE, TFT_BLACK);
+        for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
+        {
+            int32_t y = 50 + i * 15;
+            if (allSensors.isSensorInitialized(i))
+            {
+                if (allSensors.isSensorErrorDetected(i))
+                {
+                    showErrorIcon(4, y, 8);
+                    display.drawString("Sensor " + String(i) + " Error", 20, y, 1);
+                }
+                else
+                {
+                    showOkIcon(4, y, 8);
+                    display.drawString("Sensor " + String(i) + " OK", 20, y, 1);
+                }
+            }
+            else
+            {
+                showErrorIcon(4, y, 8);
+                display.drawString("Sensor " + String(i) + " Not Init", 20, y, 1);
+            }
+        }
+    }
+
+    void refreshSensorsOnScreen()
+    {
+        if (currentScreen != SCREEN_CAR)
+            return; // Only refresh sensors on screen if we are in the CAR screen state
+        if (!initialized)
+            return; // Don't show sensors on screen until the car is initialized
+        showSensor(CAR_SENSOR_FRONT_INDEX);
+        showSensor(CAR_SENSOR_LEFT_INDEX);
+        showSensor(CAR_SENSOR_RIGHT_INDEX);
+        showSensor(CAR_SENSOR_TOP_LEFT_INDEX);
+        showSensor(CAR_SENSOR_TOP_RIGHT_INDEX);
+    }
+
+    void showSensor(uint8_t sensorIndex)
+    {
+        uint32_t sensorColor = red();
+        if (allSensors.isSensorInitialized(sensorIndex))
+        {
+            sensorColor = orange();
+            if (!allSensors.isSensorErrorDetected(sensorIndex))
+            {
+                sensorColor = green();
+            }
+        }
+        switch (sensorIndex)
+        {
+        case CAR_SENSOR_FRONT_INDEX:
+            fillRectRotated(carOffsetX + CAR_SENSOR_FRONT_X_OFFSET * SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_FRONT_Y_OFFSET * SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_FRONT_ROTATE_OFFSET, sensorColor); // Front sensor
+            break;
+        case CAR_SENSOR_LEFT_INDEX:
+            fillRectRotated(carOffsetX + CAR_SENSOR_LEFT_X_OFFSET * SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_LEFT_Y_OFFSET * SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_LEFT_ROTATE_OFFSET, sensorColor); // Left sensor
+            break;
+        case CAR_SENSOR_RIGHT_INDEX:
+            fillRectRotated(carOffsetX + CAR_SENSOR_RIGHT_X_OFFSET * SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_RIGHT_Y_OFFSET * SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_RIGHT_ROTATE_OFFSET, sensorColor); // Right sensor
+            break;
+        case CAR_SENSOR_TOP_LEFT_INDEX:
+            fillRectRotated(carOffsetX + CAR_SENSOR_TOP_LEFT_X_OFFSET * SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_TOP_LEFT_Y_OFFSET * SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_TOP_LEFT_ROTATE_OFFSET, sensorColor); // Top left sensor
+            break;
+        case CAR_SENSOR_TOP_RIGHT_INDEX:
+            fillRectRotated(carOffsetX + CAR_SENSOR_TOP_RIGHT_X_OFFSET * SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_TOP_RIGHT_Y_OFFSET * SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_TOP_RIGHT_ROTATE_OFFSET, sensorColor); // Top right sensor
+            break;
+        default:
+            break;
+        }
+    }
+
+    void showCarOnScreen()
+    {
+        // Optionally, you can implement a method to show the car's position on the TFT screen
+        fillRect(carOffsetX, carOffsetY, CAR_WIDTH * SCALE_CM_TO_SCREEN, CAR_LENGTH * SCALE_CM_TO_SCREEN, blue());
+        refreshSensorsOnScreen();
     }
 
     void showMap()
     {
+        if (currentScreen != SCREEN_MAP)
+            return; // Only show map if we are in the MAP screen state
         // Display the map on the TFT screen in a simple way (for example, as a grid of colored squares)
         // You can iterate through the occupancy grid and draw rectangles for each cell based on its state
-        uint16_t cellWidth = currentWidth() / MAP_WIDTH;
-        uint16_t cellHeight = currentHeight() / MAP_HEIGHT;
-        uint16_t cellSize = min(cellWidth, cellHeight);
-        uint16_t offsetX = (currentWidth() - (cellSize * MAP_WIDTH)) / 2;
-        uint16_t offsetY = (currentHeight() - (cellSize * MAP_HEIGHT)) / 2;
         for (int x = 0; x < MAP_WIDTH; x++)
         {
             for (int y = 0; y < MAP_HEIGHT; y++)
@@ -91,30 +246,35 @@ public:
                     else if (occupancyGrid[x][y] == CELL_PERHAPS_OCCUPIED)
                         color = TFT_YELLOW;
                 }
-                display.fillRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize, color);
+                display.fillRect(mapOffsetX + x * mapCellSize, mapOffsetY + y * mapCellSize, mapCellSize, mapCellSize, color);
             }
         }
-        if (cellSize >= 3)
+        if (mapCellSize >= 3)
         {
             // Optionally, you can also draw grid lines
             for (int x = 0; x <= MAP_WIDTH; x++)
             {
-                display.drawLine(offsetX + x * cellSize, offsetY, offsetX + x * cellSize, offsetY + MAP_HEIGHT * cellSize, TFT_BLACK);
+                display.drawLine(mapOffsetX + x * mapCellSize, mapOffsetY, mapOffsetX + x * mapCellSize, mapOffsetY + MAP_HEIGHT * mapCellSize, TFT_BLACK);
             }
             for (int y = 0; y <= MAP_HEIGHT; y++)
             {
-                display.drawLine(offsetX, offsetY + y * cellSize, offsetX + MAP_WIDTH * cellSize, offsetY + y * cellSize, TFT_BLACK);
+                display.drawLine(mapOffsetX, mapOffsetY + y * mapCellSize, mapOffsetX + MAP_WIDTH * mapCellSize, mapOffsetY + y * mapCellSize, TFT_BLACK);
             }
             // Optionally, you can also draw grid lines
             for (int x = 0; x <= MAP_WIDTH; x++)
             {
-                display.drawLine(offsetX + x * cellSize, offsetY, offsetX + x * cellSize, offsetY + MAP_HEIGHT * cellSize, TFT_BLACK);
+                display.drawLine(mapOffsetX + x * mapCellSize, mapOffsetY, mapOffsetX + x * mapCellSize, mapOffsetY + MAP_HEIGHT * mapCellSize, TFT_BLACK);
             }
             for (int y = 0; y <= MAP_HEIGHT; y++)
             {
-                display.drawLine(offsetX, offsetY + y * cellSize, offsetX + MAP_WIDTH * cellSize, offsetY + y * cellSize, TFT_BLACK);
+                display.drawLine(mapOffsetX, mapOffsetY + y * mapCellSize, mapOffsetX + MAP_WIDTH * mapCellSize, mapOffsetY + y * mapCellSize, TFT_BLACK);
             }
         }
+    }
+
+    void clearCenter()
+    {
+        display.fillRect(1, 15, currentWidth() - 3, currentHeight() - 30, TFT_BLACK);
     }
 
     unsigned int colorFromRGB(uint8_t r, uint8_t g, uint8_t b)
@@ -156,16 +316,153 @@ public:
         display.fillRect(x, y, w, h, color);
     }
 
+    void fillRectRotated(int32_t x, int32_t y, int32_t w, int32_t h, float theta, uint32_t color)
+    {
+        // Calculate the center of the rectangle
+        float centerX = x + w / 2.0f;
+        float centerY = y + h / 2.0f;
+
+        // Calculate the corners of the rectangle before rotation
+        float corners[4][2] = {
+            {x, y},
+            {x + w, y},
+            {x + w, y + h},
+            {x, y + h}};
+
+        // Rotate each corner around the center
+        for (int i = 0; i < 4; i++)
+        {
+            float dx = corners[i][0] - centerX;
+            float dy = corners[i][1] - centerY;
+            float rotatedX = dx * cos(theta) - dy * sin(theta);
+            float rotatedY = dx * sin(theta) + dy * cos(theta);
+            corners[i][0] = centerX + rotatedX;
+            corners[i][1] = centerY + rotatedY;
+        }
+
+        // Draw the filled polygon using the rotated corners
+        display.fillTriangle(corners[0][0], corners[0][1], corners[1][0], corners[1][1], corners[2][0], corners[2][1], color);
+        display.fillTriangle(corners[0][0], corners[0][1], corners[2][0], corners[2][1], corners[3][0], corners[3][1], color);
+    }
+
     uint32_t blue() { return TFT_BLUE; }
     uint32_t red() { return TFT_RED; }
     uint32_t green() { return TFT_GREEN; }
     uint32_t yellow() { return TFT_YELLOW; }
     uint32_t orange() { return colorFromRGB(255, 165, 0); }
-    
+
+    bool isTouched()
+    {
+        uint16_t x, y;
+        bool touched = display.getTouch(&x, &y);
+        if (touched)
+        {
+            touchX = x;
+            touchY = y;
+        }
+        if (touched && !lastTouchState)
+        {
+            switchToNextScreen();
+            changeScreen(currentScreen);
+        }
+        lastTouchState = touched;
+        return touched;
+    }
+
+    void getTouchCoordinates(uint16_t &x, uint16_t &y)
+    {
+        x = touchX;
+        y = touchY;
+    }
+
+    void forceMapRedraw()
+    {
+        for (int x = 0; x < MAP_WIDTH; x++)
+        {
+            for (int y = 0; y < MAP_HEIGHT; y++)
+            {
+                oldGrid[x][y] = CELL_REDRAW; // Force redraw of all cells on the map screen
+            }
+        }
+    }
+
+    void changeScreen(ScreenState newState)
+    {
+        if (currentScreen == newState)
+            return; // No change, skipping redraw
+        currentScreen = newState;
+        clearCenter();
+        switch (currentScreen)
+        {
+        case SCREEN_STATE:
+            showStateScreen();
+            showHubState();
+            showAllSensorsState();
+            break;
+        case SCREEN_MAP:
+            forceMapRedraw();
+            showMap();
+            break;
+        case SCREEN_CAR:
+            showCarOnScreen();
+            break;
+        case SCREEN_ERROR:
+            display.setTextColor(TFT_RED, TFT_BLACK);
+            display.drawCentreString("Error Occurred", currentWidth() / 2, currentHeight() / 2, 2);
+            break;
+        }
+    }
+
+    void switchToNextScreen()
+    {
+        if (currentScreen == SCREEN_STATE)
+        {
+            changeScreen(SCREEN_MAP);
+        }
+        else if (currentScreen == SCREEN_MAP)
+        {
+            changeScreen(SCREEN_CAR);
+        }
+        else if (currentScreen == SCREEN_CAR)
+        {
+            changeScreen(SCREEN_ERROR);
+        }
+        else
+        {
+            changeScreen(SCREEN_STATE);
+        }
+        myTrace.print("Switched to screen: ");
+        switch (currentScreen)
+        {
+        case SCREEN_STATE:
+            myTrace.println("State");
+            break;
+        case SCREEN_CAR:
+            myTrace.println("Car");
+            break;
+        case SCREEN_MAP:
+            myTrace.println("Map");
+            break;
+        case SCREEN_ERROR:
+            myTrace.println("Error");
+            break;
+        }
+    }
+
 private:
     TFT_eSPI display; // Create an instance of the TFT_eSPI class
+    uint16_t mapCellSize;
+    uint16_t mapOffsetX;
+    uint16_t mapOffsetY;
     CellState oldGrid[MAP_WIDTH][MAP_HEIGHT];
 
+    uint16_t touchX = 0, touchY = 0;
+    bool lastTouchState = false;
+    ScreenState currentScreen = SCREEN_STATE;
+
+    int32_t carOffsetX = 0;
+    int32_t carOffsetY = 0;
+    bool initialized = false;
 };
 
 #endif // THE_SCREEN_H

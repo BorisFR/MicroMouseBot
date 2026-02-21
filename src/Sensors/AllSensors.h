@@ -24,21 +24,27 @@ public:
         gpio_num_t sclPin = static_cast<gpio_num_t>(SENSORS_SCL_PIN);
         gpio_set_pull_mode(sdaPin, GPIO_PULLUP_ONLY);
         gpio_set_pull_mode(sclPin, GPIO_PULLUP_ONLY);
-        vTaskDelay(100 / portTICK_PERIOD_MS); // Short delay to allow pull-up resistors to stabilize
+        vTaskDelay(2); // Short delay to allow pull-up resistors to stabilize
         Wire.begin(SENSORS_SDA_PIN, SENSORS_SCL_PIN);
         Wire.setClock(SENSORS_I2C_SPEED);
-        vTaskDelay(100 / portTICK_PERIOD_MS); // Short delay to allow I2C bus to stabilize
+        vTaskDelay(2); // Short delay to allow I2C bus to stabilize
     }
 
     void begin()
     {
-        myTrace.println("🕵️  Scanning default I2C bus");
-        doScan();
+        // myTrace.println("🕵️  Scanning default I2C bus");
+        // doScan();
         hubPCA9548A.setup();
+        if (theCallbackHub)
+            theCallbackHub();
+        if (theCallbackSensors)
+            theCallbackSensors();
+        if (!hubPCA9548A.isInitialized())
+            return;
         for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
         {
             hubPCA9548A.selectChannel(i);
-            vTaskDelay(100 / portTICK_PERIOD_MS);
+            vTaskDelay(2);
             sensorVL53L0X[i].setup();
             if (sensorVL53L0X[i].isInitializedSuccessfully())
             {
@@ -63,6 +69,8 @@ public:
             }
         }
         doFullScan();
+        if (theCallbackSensors)
+            theCallbackSensors();
     }
 
     void loop()
@@ -84,6 +92,11 @@ public:
                 }
             }
         }
+    }
+
+    bool isHuReady()
+    {
+        return hubPCA9548A.isInitialized();
     }
 
     bool hasChanged()
@@ -165,7 +178,7 @@ private:
                 myTrace.print("🕵️  Unknown error at address 0x");
                 myTrace.printlnHEX(address);
             }
-            vTaskDelay(pdMS_TO_TICKS(10));
+            vTaskDelay(2);
         }
         if (nDevices == 0)
             myTrace.println("🕵️  No I2C devices found");

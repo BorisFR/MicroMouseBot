@@ -41,29 +41,30 @@ https://github.com/platformio/platform-espressif32/blob/master/boards/4d_systems
                     6               42
                     7               41
                     15              40
-                    16              39  XPT2046 TOUCH IRQ
-                    17              38  XPT2046 TOUCH CS
-ILI9341 BackLight   18              37  XPT2046 TOUCH MISO
-ILI9341 RST         8               36  XPT2046 TOUCH SCK
-               JTAG 3               35  XPT2046 TOUCH MOSI
-                    46              0 BOOT
+                    16              39  
+                    17              38  
+ILI9341 BackLight   18              37  
+ILI9341 RST         8               36  
+               JTAG 3               35  
+                    46              0  BOOT
 ILI9341 DC          9               45 VPSI
 ILI9341 CS          10              48
 ILI9341 MOSI        11              47
 ILI9341 SCLK        12              21
 ILI9341 MISO        13              20 USB_D+
-                    14              19 USB_D-
+XPT2046 TOUCH CS    14              19 USB_D-
                     5V              GND
                     GND5V           GND
 
 48 LED
 
 
+Touch XPT2046
 T_IRQ
-T_DO  => MISO
-T_DIN => MOSI
-T_CS
-T_CLK
+T_DO  => MISO => 13
+T_DIN => MOSI => 11
+T_CS  => 14
+T_CLK => SCLK => 12
 
 
 
