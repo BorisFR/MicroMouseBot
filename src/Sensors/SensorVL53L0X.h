@@ -27,10 +27,16 @@ public:
         myTrace.println("SensorVL53L0X setup");
         sensor.setBus(&Wire);
         sensor.setTimeout(20);
-        if (!sensor.init())
+        uint8_t countAttempts = 0;
+        while (!sensor.init())
         {
-            myTrace.println("Failed to detect and initialize VL53L0X sensor!");
-            return;
+            countAttempts++;
+            vTaskDelay(pdMS_TO_TICKS(100)); // Short delay before retrying
+            if (countAttempts >= 5)
+            {
+                myTrace.println("Failed to initialize VL53L0X sensor after multiple attempts. Giving up.");
+                return;
+            }
         }
         myTrace.println("VL53L0X sensor initialized");
         isInitialized = true;
@@ -68,8 +74,8 @@ public:
             // myTrace.println("VL53L0X timeout");
             inErrorState = true;
             countError++;
-            if (countError == VL53L0X_ERROR_READING_COUNT_THRESHOLD && theCallback)
-                theCallback();
+            if (countError == VL53L0X_ERROR_READING_COUNT_THRESHOLD && theCallbackError)
+                theCallbackError();
             if (countError > VL53L0X_ERROR_READING_COUNT_THRESHOLD)
                 countError--; // prevent overflow
         }
@@ -81,6 +87,8 @@ public:
             {
                 lastDistance = distance;
                 changed = true;
+                if (theCallbackValueChange)
+                    theCallbackValueChange(distance);
             }
         }
     }
@@ -116,7 +124,12 @@ public:
 
     void eventError(EVENT_ERROR callback)
     {
-        theCallback = callback;
+        theCallbackError = callback;
+    }
+
+    void eventChangeValue(EVENT_CHANGE_WITH_UINT16 callback)
+    {
+        theCallbackValueChange = callback;
     }
 
 private:
@@ -124,7 +137,8 @@ private:
     bool isInitialized = false;
     bool inErrorState = false;
     uint8_t countError = 0;
-    EVENT_ERROR theCallback;
+    EVENT_ERROR theCallbackError;
+    EVENT_CHANGE_WITH_UINT16 theCallbackValueChange;
     elapsedMillis timeElapsed;
     bool changed = false;
     uint16_t lastDistance = 0;

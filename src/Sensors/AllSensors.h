@@ -4,6 +4,7 @@
 #include "Globals.h"
 #include "HubPCA9548A.h"
 #include "SensorVL53L0X.h"
+#include "TheCompass.h"
 
 // https://www.pololu.com/product/2490
 // Time-of-Flight distance sensor VL53L0X
@@ -35,8 +36,6 @@ public:
         hubPCA9548A.setup();
         if (theCallbackHub)
             theCallbackHub();
-        if (theCallbackSensors)
-            theCallbackSensors();
         if (!hubPCA9548A.isInitialized())
             return;
         for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
@@ -49,13 +48,15 @@ public:
                 myTrace.print("VL53L0X sensor on channel ");
                 myTrace.printDEC(i);
                 myTrace.println(" initialized successfully");
+                sensorVL53L0X[i].eventChangeValue([i, this](uint16_t value)
+                                            {
+                    if (theCallbackSensorWithIndexAndValue)
+                        theCallbackSensorWithIndexAndValue(i, value); });
+
                 sensorVL53L0X[i].eventError([i, this]()
                                             {
-                    myTrace.print("🚨 VL53L0X sensor on channel ");
-                    myTrace.printDEC(i);
-                    myTrace.println(" has entered error state"); 
-                    if (theCallbackSensors)
-                        theCallbackSensors(); });
+                    if (theCallbackSensorWithIndexAndValue)
+                        theCallbackSensorWithIndexAndValue(i, 0);});
             }
             else
             {
@@ -63,12 +64,22 @@ public:
                 myTrace.printDEC(i);
                 myTrace.println(" failed to initialize");
             }
-            if (theCallbackSensors)
-                theCallbackSensors();
+            if (theCallbackSensorWithIndexAndValue)
+                        theCallbackSensorWithIndexAndValue(i, 0); // Call with a default value of 0 to indicate that the sensor is ready and has an initial distance value. This will allow the screen to update the sensor status immediately after initialization.
         }
         //doFullScan();
-        if (theCallbackSensors)
-            theCallbackSensors();
+
+        theCompass.setup();
+        theCompass.eventChangeValue([this](float value)
+                            {
+            if (theCallbackIMU)
+                theCallbackIMU(value); });
+        theCompass.eventError([this]()
+                            {
+            myTrace.println("🚨 Compass error detected");
+            if (theCallbackIMU)
+                theCallbackIMU(0);});
+        theCompass.begin();
     }
 
     void loop()
@@ -81,15 +92,11 @@ public:
                 sensorVL53L0X[i].loop();
                 if (sensorVL53L0X[i].hasChanged())
                 {
-                    /*myTrace.print("VL53L0X [");
-                    myTrace.printDEC(i);
-                    myTrace.print("]: ");
-                    myTrace.printDEC(sensorVL53L0X[i].getLastDistance());
-                    myTrace.println(" mm");*/
-                    changed = true;
+                    changedSensorVL53L0X = true;
                 }
             }
         }
+        theCompass.loop();
     }
 
     bool isHubReady()
@@ -99,9 +106,9 @@ public:
 
     bool hasChanged()
     {
-        if (changed)
+        if (changedSensorVL53L0X)
         {
-            changed = false;
+            changedSensorVL53L0X = false;
             return true;
         }
         return false;
@@ -128,22 +135,56 @@ public:
         return true;
     }
 
-    void eventErrorHub(EVENT_ERROR callback)
+    void eventHubChange(EVENT_CHANGE callback)
     {
         theCallbackHub = callback;
     }
 
-    void eventErrorSensor(EVENT_ERROR callback)
+    void eventSensorWithIndexAndValue(EVENT_CHANGE_WITH_UINT8_UINT16 callback)
     {
-        theCallbackSensors = callback;
+        theCallbackSensorWithIndexAndValue = callback;
+    }
+
+    void eventImuChange(EVENT_CHANGE_WITH_FLOAT callback)
+    {
+        theCallbackIMU = callback;
+    }
+
+    bool isIMUinitializedSuccessfully()
+    {
+        return theCompass.isInitializedSuccessfully();
+    }
+
+    bool isIMUErrorDetected()
+    {
+        return false; // Placeholder, implement actual error detection logic for the IMU if available. For now, we are not simulating IMU errors, so we return false to indicate no error.
+        //return theCompass.isErrorDetected(); // Using error detection as a proxy for error state for simplicity
+    }
+
+    bool isIMUChangeDetected()
+    {
+        if (changeIMU)
+        {
+            changeIMU = false;
+            return true;
+        }
+        return false;
+    }
+
+    float getHeading()
+    {
+        return theCompass.getHeading();
     }
 
 private:
     HubPCA9548A hubPCA9548A;
     SensorVL53L0X sensorVL53L0X[VL53L0X_COUNT]; // 1 sensor on each hub channel
-    bool changed = false;
-    EVENT_ERROR theCallbackHub;
-    EVENT_ERROR theCallbackSensors;
+    bool changedSensorVL53L0X = false;
+    EVENT_CHANGE theCallbackHub;
+    EVENT_CHANGE_WITH_UINT8_UINT16 theCallbackSensorWithIndexAndValue;
+    TheCompass theCompass;
+    bool changeIMU = false;
+    EVENT_CHANGE_WITH_FLOAT theCallbackIMU;
 
     void doFullScan()
     {

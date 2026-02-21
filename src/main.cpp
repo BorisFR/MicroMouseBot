@@ -23,34 +23,15 @@ void setup()
   theScreen.showHubState();
   theScreen.showAllSensorsState();
   allSensors.setup();
-  allSensors.eventErrorHub([]()
-                           { myTrace.println("🚨 I2C hub error detected");
-                              boardLed.setColorRed(); 
-                              if(allSensors.isHubReady()) {
-                                myTrace.println("🚨 Hub is ready, checking individual sensors for errors");
-                              } else {
-                                myTrace.println("🚨 Hub is not ready, cannot check individual sensors");
-                              } 
-                            theScreen.showHubState(); });
+  allSensors.eventHubChange([]()
+                            { theScreen.showHubState(); });
 
-  allSensors.eventErrorSensor([]()
-                              { myTrace.println("🚨 Sensor error detected");
-                                for(uint8_t i = 0; i < VL53L0X_COUNT; i++) {
-                                  if(allSensors.isSensorInitialized(i)) {
-                                    if(allSensors.isSensorErrorDetected(i)) {
-                                      myTrace.print("🚨 Sensor on channel ");
-                                      myTrace.printDEC(i);
-                                      myTrace.println(" is in error state");
-                                      theScreen.refreshSensorsOnScreen();
-                                    }
-                                  } else {
-                                    myTrace.println("🚨 Sensor on channel ");
-                                    myTrace.printDEC(i);
-                                    myTrace.println(" is not initialized");
-                                    theScreen.refreshSensorsOnScreen();
-                                  }
-                                  } 
-                                theScreen.showAllSensorsState(); });
+  allSensors.eventSensorWithIndexAndValue([](uint8_t index, uint16_t value)
+                                          { theScreen.showVL53L0Xstate(index, allSensors.isSensorInitialized(index), allSensors.isSensorErrorDetected(index), value); });
+
+  allSensors.eventImuChange([](float value)
+                            { botPose.theta = value; theScreen.showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), value); });
+
   allSensors.begin();
   theMap.setup();
   theCar.setup();

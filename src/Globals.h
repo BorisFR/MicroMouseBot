@@ -15,6 +15,11 @@
 #define NTP_TIMEZONE "Europe/Paris"
 
 #define EVENT_ERROR std::function<void()>
+#define EVENT_CHANGE std::function<void()>
+#define EVENT_CHANGE_WITH_UINT8 std::function<void(uint8_t index)>
+#define EVENT_CHANGE_WITH_UINT8_UINT16 std::function<void(uint8_t index, uint16_t value)>
+#define EVENT_CHANGE_WITH_UINT16 std::function<void(uint16_t index)>
+#define EVENT_CHANGE_WITH_FLOAT std::function<void(float value)>
 
 
 #include "MyTrace.h"

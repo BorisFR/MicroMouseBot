@@ -38,7 +38,7 @@ enum ScreenState
     SCREEN_ERROR
 };
 
-#define SCALE_CM_TO_SCREEN 10                                              // 1 cm in the real world corresponds to 3 pixels on the screen (for visualization purposes)
+#define CAR_SCALE_CM_TO_SCREEN 20                                          // 1 cm in the real world corresponds to 20 pixels on the screen (for visualization purposes)
 #define CAR_WIDTH 8                                                        // cm
 #define CAR_LENGTH 12                                                      // cm
 #define CAR_SENSOR_WIDTH 1.5f                                              // cm, width of the front sensor (for visualization on the screen)
@@ -66,6 +66,7 @@ public:
 
     ~TheScreen() { myTrace.println("🖥️ unloaded"); }
 
+    /// @brief Initializes the screen and displays a welcome message. Also calculates the offsets for drawing the car and the map on the screen.
     void setup()
     {
         myTrace.println("🖥️ setup");
@@ -80,8 +81,8 @@ public:
         display.drawCentreString("(c) 2026 - by Boris", currentWidth() / 2, currentHeight() - 14 + 4, 1);
         display.drawRect(0, 14, currentWidth() - 1, currentHeight() - 28, TFT_BLUE);
 
-        carOffsetX = (currentWidth() - CAR_WIDTH * SCALE_CM_TO_SCREEN) / 2;
-        carOffsetY = (currentHeight() - CAR_LENGTH * SCALE_CM_TO_SCREEN) / 2;
+        carOffsetX = (currentWidth() - CAR_WIDTH * CAR_SCALE_CM_TO_SCREEN) / 2;
+        carOffsetY = (currentHeight() - CAR_LENGTH * CAR_SCALE_CM_TO_SCREEN) / 2;
         initialized = true;
         uint16_t mapCellWidth = currentWidth() / MAP_WIDTH;
         uint16_t mapCellHeight = currentHeight() / MAP_HEIGHT;
@@ -91,10 +92,87 @@ public:
         forceMapRedraw();
     }
 
+    /// @brief Main loop for the screen, currently only checks for touch input. In the future, this could be expanded to handle screen updates or animations.
     void loop()
     {
         isTouched();
     }
+
+    // ************************************************************************
+
+    // for all screens
+
+    void showVL53L0Xstate(int32_t index, bool isInitialized, bool isError, uint16_t distance = 0)
+    {
+        if (currentScreen == SCREEN_STATE)
+        {
+            display.fillRect(4, 50 + index * 15, currentWidth() - 8, 15, TFT_BLACK); // Clear previous status
+            display.setTextColor(TFT_WHITE, TFT_BLACK);
+            int32_t y = 50 + index * 15;
+            if (isInitialized)
+            {
+                if (isError)
+                {
+                    showErrorIcon(4, y, 8);
+                    display.drawString("Sensor " + String(index) + " Error", 20, y, 1);
+                }
+                else
+                {
+                    showOkIcon(4, y, 8);
+                    display.drawString("Sensor " + String(index) + " OK (" + String(distance) + " cm)", 20, y, 1);
+                }
+            }
+            else
+            {
+                showErrorIcon(4, y, 8);
+                display.drawString("Sensor " + String(index) + " Not Init", 20, y, 1);
+            }
+            return;
+        }
+        if (currentScreen == SCREEN_CAR)
+        {
+            showSensor(index);
+            return;
+        }
+    }
+
+    void showIMUstate(bool isInitialized, bool isError, float value)
+    {
+        if (currentScreen == SCREEN_STATE)
+        {
+            display.fillRect(4, 50 + VL53L0X_COUNT * 15, currentWidth() - 8, 15, TFT_BLACK); // Clear previous status
+            display.setTextColor(TFT_WHITE, TFT_BLACK);
+            int32_t y = 50 + VL53L0X_COUNT * 15;
+            if (isInitialized)
+            {
+                if (isError)
+                {
+                    showErrorIcon(4, y, 8);
+                    display.drawString("IMU Error", 20, y, 1);
+                }
+                else
+                {
+                    showOkIcon(4, y, 8);
+                    display.drawString("IMU OK (" + String(value, 2) + " rad)", 20, y, 1);
+                }
+            }
+            else
+            {
+                showErrorIcon(4, y, 8);
+                display.drawString("IMU Not Init", 20, y, 1);
+            }
+        }
+        if (currentScreen == SCREEN_CAR)
+        {
+            showIMU();
+            return;
+        }    
+    }
+
+    // ************************************************************************
+
+    // State of all components
+    // The state screen will show the status of the I2C hub and all sensors, with a simple OK or Error icon next to each component
 
     void showStateScreen()
     {
@@ -136,11 +214,15 @@ public:
 
     void showAllSensorsState()
     {
-        display.fillRect(4, 50, currentWidth() - 8, VL53L0X_COUNT * 15, TFT_BLACK); // Clear previous sensor status
-        display.setTextColor(TFT_WHITE, TFT_BLACK);
+        if (currentScreen != SCREEN_STATE)
+            return; // Only show sensor status if we are in the STATE screen
+
+        // display.fillRect(4, 50, currentWidth() - 8, VL53L0X_COUNT * 15, TFT_BLACK); // Clear previous sensor status
+        // display.setTextColor(TFT_WHITE, TFT_BLACK);
         for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
         {
-            int32_t y = 50 + i * 15;
+            showVL53L0Xstate(i, allSensors.isSensorInitialized(i), allSensors.isSensorErrorDetected(i), allSensors.getLastDistance(i));
+            /*int32_t y = 50 + i * 15;
             if (allSensors.isSensorInitialized(i))
             {
                 if (allSensors.isSensorErrorDetected(i))
@@ -158,9 +240,27 @@ public:
             {
                 showErrorIcon(4, y, 8);
                 display.drawString("Sensor " + String(i) + " Not Init", 20, y, 1);
-            }
+            }*/
         }
+        showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), allSensors.getHeading());
+        /*if (allSensors.isIMUinitializedSuccessfully())
+        {
+            showOkIcon(4, 50 + VL53L0X_COUNT * 15, 8);
+            display.drawString("IMU OK", 20, 50 + VL53L0X_COUNT * 15, 1);
+        }
+        else
+        {
+            showErrorIcon(4, 50 + VL53L0X_COUNT * 15, 8);
+            display.drawString("IMU Not Init", 20, 50 + VL53L0X_COUNT * 15, 1);
+        }*/
     }
+
+    // ************************************************************************
+
+    // Car visualization on the screen
+    // The car screen will show a top-down view of the car in the center of the screen, with simple rectangles representing the sensors.
+    // The color of each sensor will indicate its status (e.g., green for OK, red for error, grey for not initialized).
+    // The screen will also display the current orientation of the car using a simple arrow.
 
     void refreshSensorsOnScreen()
     {
@@ -189,30 +289,67 @@ public:
         switch (sensorIndex)
         {
         case CAR_SENSOR_FRONT_INDEX:
-            fillRectRotated(carOffsetX + CAR_SENSOR_FRONT_X_OFFSET * SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_FRONT_Y_OFFSET * SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_FRONT_ROTATE_OFFSET, sensorColor); // Front sensor
+            fillRectRotated(carOffsetX + CAR_SENSOR_FRONT_X_OFFSET * CAR_SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_FRONT_Y_OFFSET * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_FRONT_ROTATE_OFFSET, sensorColor); // Front sensor
             break;
         case CAR_SENSOR_LEFT_INDEX:
-            fillRectRotated(carOffsetX + CAR_SENSOR_LEFT_X_OFFSET * SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_LEFT_Y_OFFSET * SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_LEFT_ROTATE_OFFSET, sensorColor); // Left sensor
+            fillRectRotated(carOffsetX + CAR_SENSOR_LEFT_X_OFFSET * CAR_SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_LEFT_Y_OFFSET * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_LEFT_ROTATE_OFFSET, sensorColor); // Left sensor
             break;
         case CAR_SENSOR_RIGHT_INDEX:
-            fillRectRotated(carOffsetX + CAR_SENSOR_RIGHT_X_OFFSET * SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_RIGHT_Y_OFFSET * SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_RIGHT_ROTATE_OFFSET, sensorColor); // Right sensor
+            fillRectRotated(carOffsetX + CAR_SENSOR_RIGHT_X_OFFSET * CAR_SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_RIGHT_Y_OFFSET * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_RIGHT_ROTATE_OFFSET, sensorColor); // Right sensor
             break;
         case CAR_SENSOR_TOP_LEFT_INDEX:
-            fillRectRotated(carOffsetX + CAR_SENSOR_TOP_LEFT_X_OFFSET * SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_TOP_LEFT_Y_OFFSET * SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_TOP_LEFT_ROTATE_OFFSET, sensorColor); // Top left sensor
+            fillRectRotated(carOffsetX + CAR_SENSOR_TOP_LEFT_X_OFFSET * CAR_SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_TOP_LEFT_Y_OFFSET * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_TOP_LEFT_ROTATE_OFFSET, sensorColor); // Top left sensor
             break;
         case CAR_SENSOR_TOP_RIGHT_INDEX:
-            fillRectRotated(carOffsetX + CAR_SENSOR_TOP_RIGHT_X_OFFSET * SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_TOP_RIGHT_Y_OFFSET * SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * SCALE_CM_TO_SCREEN, CAR_SENSOR_TOP_RIGHT_ROTATE_OFFSET, sensorColor); // Top right sensor
+            fillRectRotated(carOffsetX + CAR_SENSOR_TOP_RIGHT_X_OFFSET * CAR_SCALE_CM_TO_SCREEN, carOffsetY + CAR_SENSOR_TOP_RIGHT_Y_OFFSET * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_WIDTH * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_LENGTH * CAR_SCALE_CM_TO_SCREEN, CAR_SENSOR_TOP_RIGHT_ROTATE_OFFSET, sensorColor); // Top right sensor
             break;
         default:
             break;
         }
     }
 
+    void showIMU()
+    {
+        if (currentScreen != SCREEN_CAR)
+            return; // Only refresh sensors on screen if we are in the CAR screen state
+        if (!initialized)
+            return; // Don't show sensors on screen until the car is initialized
+        // display the current orientation of the car using a simple arrow
+        int arrowX = carOffsetX + CAR_WIDTH * CAR_SCALE_CM_TO_SCREEN / 2;
+        int arrowY = carOffsetY + CAR_LENGTH * CAR_SCALE_CM_TO_SCREEN / 2;
+        int arrowLength = 10;
+        int arrowWidth = 3;
+        int endX = arrowX + arrowLength * cos(botPose.theta);
+        int endY = arrowY - arrowLength * sin(botPose.theta);
+        display.fillCircle(arrowX, arrowY, arrowLength + 2, TFT_BLACK);
+        // draw an arrow from (arrowX, arrowY) to (endX, endY) with the specified width and color
+        display.drawLine(arrowX, arrowY, endX, endY, green());
+    }
+
     void showCarOnScreen()
     {
         // Optionally, you can implement a method to show the car's position on the TFT screen
-        fillRect(carOffsetX, carOffsetY, CAR_WIDTH * SCALE_CM_TO_SCREEN, CAR_LENGTH * SCALE_CM_TO_SCREEN, blue());
+        fillRect(carOffsetX, carOffsetY, CAR_WIDTH * CAR_SCALE_CM_TO_SCREEN, CAR_LENGTH * CAR_SCALE_CM_TO_SCREEN, blue());
         refreshSensorsOnScreen();
+        showIMU();
+    }
+
+    // ************************************************************************
+
+    // Map visualization on the screen
+    // The map screen will show a grid representing the occupancy grid, with different colors for free, occupied, and unknown cells.
+    // The robot's current position will be highlighted on the map.
+    // To optimize the drawing of the map, we can keep track of the previous state of the occupancy grid and only redraw cells that have changed since the last update.
+
+    void forceMapRedraw()
+    {
+        for (int x = 0; x < MAP_WIDTH; x++)
+        {
+            for (int y = 0; y < MAP_HEIGHT; y++)
+            {
+                oldGrid[x][y] = CELL_REDRAW; // Force redraw of all cells on the map screen
+            }
+        }
     }
 
     void showMap()
@@ -271,6 +408,10 @@ public:
             }
         }
     }
+
+    // ************************************************************************
+
+    // Utility functions
 
     void clearCenter()
     {
@@ -351,6 +492,10 @@ public:
     uint32_t yellow() { return TFT_YELLOW; }
     uint32_t orange() { return colorFromRGB(255, 165, 0); }
 
+    // ************************************************************************
+
+    // Touch input handling
+
     bool isTouched()
     {
         uint16_t x, y;
@@ -375,16 +520,9 @@ public:
         y = touchY;
     }
 
-    void forceMapRedraw()
-    {
-        for (int x = 0; x < MAP_WIDTH; x++)
-        {
-            for (int y = 0; y < MAP_HEIGHT; y++)
-            {
-                oldGrid[x][y] = CELL_REDRAW; // Force redraw of all cells on the map screen
-            }
-        }
-    }
+    // ************************************************************************
+
+    // Screen state management
 
     void changeScreen(ScreenState newState)
     {
