@@ -25,8 +25,8 @@
 extern MyTrace myTrace;
 
 // Sensors
-#define PCA9548A_ADDRESS 0x70
-#define PCA9548A_RESET_PIN 42
+//#define PCA9548A_ADDRESS 0x70
+//#define PCA9548A_RESET_PIN 42
 #define BUS_TO_SCAN 5
 #define VL53L0X_COUNT 5
 #define VL53L0X_ERROR_READING_COUNT_THRESHOLD 5
@@ -45,8 +45,10 @@ extern MyTrace myTrace;
 extern AllSensors allSensors;
 
 // unit is centimeter
-#define CELL_SIZE 18
-#define CELLS_BY_WIDTH 5
+#define CELL_SIZE 18 // Each cell in the map represents an 18x18 cm area in the real world. This means our 288x288 cm map will be divided into a 16x16 grid of cells.
+// /!\  taille de la map
+// c'est ce qui occupe de la mémoire !
+#define CELLS_BY_WIDTH 10
 #define CELLS_BY_HEIGHT 5
 #define MAP_WIDTH (CELL_SIZE * CELLS_BY_WIDTH)   // 288 cm
 #define MAP_HEIGHT (CELL_SIZE * CELLS_BY_HEIGHT) // 288 cm

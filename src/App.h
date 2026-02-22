@@ -16,20 +16,7 @@
 class App
 {
 public:
-    App(BoardLed &boardLedRef,
-        TheScreen &screenRef,
-        AllSensors &sensorsRef,
-        TheMap &mapRef,
-        TheCar &carRef,
-        BotPose &poseRef)
-        : boardLed(boardLedRef),
-          theScreen(screenRef),
-          allSensors(sensorsRef),
-          theMap(mapRef),
-          theCar(carRef),
-          pose(poseRef)
-    {
-    }
+    App(BoardLed &boardLedRef, TheScreen &screenRef, AllSensors &sensorsRef, TheMap &mapRef, TheCar &carRef, BotPose &poseRef) : boardLed(boardLedRef), theScreen(screenRef), allSensors(sensorsRef), theMap(mapRef), theCar(carRef), pose(poseRef) {}
 
     void setup()
     {
@@ -98,17 +85,9 @@ private:
     void startSensorTask()
     {
         if (sensorQueue)
-        {
             return;
-        }
         sensorQueue = xQueueCreate(1, sizeof(AllSensors::SensorFrame));
-        xTaskCreatePinnedToCore(sensorTaskEntry,
-                                "SensorTask",
-                                4096,
-                                this,
-                                1,
-                                &sensorTaskHandle,
-                                1);
+        xTaskCreatePinnedToCore(sensorTaskEntry, "SensorTask", 4096, this, 1, &sensorTaskHandle, 1);
     }
 
     void sensorTask()
@@ -118,9 +97,7 @@ private:
             allSensors.loop();
             AllSensors::SensorFrame frame;
             if (allSensors.getLatestFrame(frame) && sensorQueue)
-            {
                 xQueueOverwrite(sensorQueue, &frame);
-            }
             vTaskDelay(pdMS_TO_TICKS(SENSOR_INTERVAL_MS));
         }
     }
@@ -128,9 +105,7 @@ private:
     void pollSensorFrame()
     {
         if (!sensorQueue)
-        {
             return;
-        }
         AllSensors::SensorFrame frame;
         if (xQueueReceive(sensorQueue, &frame, 0) == pdTRUE)
         {
@@ -146,15 +121,10 @@ private:
     void tickMap()
     {
         if (mapTimer < MAP_INTERVAL_MS)
-        {
             return;
-        }
         mapTimer = 0;
-
         if (!hasFrame)
-        {
             return;
-        }
 
         LidarReading front = {CAR_SENSOR_FRONT_DIRECTION, lastFrame.distances[CAR_SENSOR_FRONT_INDEX]};
         theMap.updateWithLidarReadings({front});
@@ -168,38 +138,22 @@ private:
         theMap.updateWithLidarReadings({topRight});
 
         if (theMap.hasChanged())
-        {
             theScreen.showMap();
-        }
     }
 
     void tickUI()
     {
         if (uiTimer < UI_INTERVAL_MS)
-        {
             return;
-        }
         uiTimer = 0;
-
         if (!hasFrame)
-        {
             return;
-        }
 
         for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
-        {
-            theScreen.showVL53L0Xstate(i,
-                                       allSensors.isSensorInitialized(i),
-                                       allSensors.isSensorErrorDetected(i),
-                                       lastFrame.distances[i]);
-        }
+            theScreen.showVL53L0Xstate(i, allSensors.isSensorInitialized(i), allSensors.isSensorErrorDetected(i), lastFrame.distances[i]);
 
         if (lastFrame.headingValid)
-        {
-            theScreen.showIMUstate(allSensors.isIMUinitializedSuccessfully(),
-                                   allSensors.isIMUErrorDetected(),
-                                   lastFrame.heading);
-        }
+            theScreen.showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), lastFrame.heading);
     }
 };
 

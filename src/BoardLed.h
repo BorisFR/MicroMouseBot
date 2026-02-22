@@ -9,15 +9,9 @@
 class BoardLed
 {
 public:
-    BoardLed()
-    {
-        // myTrace.println("💡 loaded");
-    }
+    BoardLed() {}
 
-    ~BoardLed()
-    {
-        myTrace.println("💡 unloaded");
-    }
+    ~BoardLed() { myTrace.println("💡 unloaded"); }
 
     void setup()
     {

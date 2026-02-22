@@ -19,7 +19,7 @@ public:
 
     void setup()
     {
-        Serial.begin(115200);
+        Serial.begin(SERIAL_BAUD);
         vTaskDelay(pdMS_TO_TICKS(500)); // Short delay to allow Serial to initialize
     }
 

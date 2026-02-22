@@ -56,14 +56,12 @@ public:
                 myTrace.printDEC(i);
                 myTrace.println(" initialized successfully");
                 sensorVL53L0X[i].eventChangeValue([i, this](uint16_t value)
-                                            {
-                    if (theCallbackSensorWithIndexAndValue)
-                        theCallbackSensorWithIndexAndValue(i, value); });
+                                                  {if (theCallbackSensorWithIndexAndValue)
+                                                        theCallbackSensorWithIndexAndValue(i, value); });
 
                 sensorVL53L0X[i].eventError([i, this]()
-                                            {
-                    if (theCallbackSensorWithIndexAndValue)
-                        theCallbackSensorWithIndexAndValue(i, 0);});
+                                            {if (theCallbackSensorWithIndexAndValue)
+                                                theCallbackSensorWithIndexAndValue(i, 0); });
             }
             else
             {
@@ -72,23 +70,21 @@ public:
                 myTrace.println(" failed to initialize");
             }
             if (theCallbackSensorWithIndexAndValue)
-                        theCallbackSensorWithIndexAndValue(i, 0); // Call with a default value of 0 to indicate that the sensor is ready and has an initial distance value. This will allow the screen to update the sensor status immediately after initialization.
+                theCallbackSensorWithIndexAndValue(i, 0); // Call with a default value of 0 to indicate that the sensor is ready and has an initial distance value. This will allow the screen to update the sensor status immediately after initialization.
         }
-        //doFullScan();
+        // doFullScan();
 
         theCompass.setup();
         theCompass.eventChangeValue([this](float value)
-                            {
-            lastHeading = value;
-            changeIMU = true;
-            frameChanged = true;
-            if (theCallbackIMU)
-                theCallbackIMU(value); });
+                                    { lastHeading = value;
+                                    changeIMU = true;
+                                    frameChanged = true;
+                                    if (theCallbackIMU)
+                                        theCallbackIMU(value); });
         theCompass.eventError([this]()
-                            {
-            myTrace.println("🚨 Compass error detected");
-            if (theCallbackIMU)
-                theCallbackIMU(0);});
+                              { myTrace.println("🚨 Compass error detected");
+                                if (theCallbackIMU)
+                                    theCallbackIMU(0); });
         theCompass.begin();
     }
 
@@ -186,7 +182,7 @@ public:
     bool isIMUErrorDetected()
     {
         return false; // Placeholder, implement actual error detection logic for the IMU if available. For now, we are not simulating IMU errors, so we return false to indicate no error.
-        //return theCompass.isErrorDetected(); // Using error detection as a proxy for error state for simplicity
+        // return theCompass.isErrorDetected(); // Using error detection as a proxy for error state for simplicity
     }
 
     bool isIMUChangeDetected()

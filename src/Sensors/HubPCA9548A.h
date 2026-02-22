@@ -29,12 +29,12 @@ public:
         {
             myTrace.println("HubPCA9548A detected successfully");
             initialized = true;
+            selectChannel(7); // Select last channel by default
         }
         else
         {
             myTrace.println("🚨 HubPCA9548A not detected");
         }
-        selectChannel(7); // Select last channel by default
     }
 
     bool isInitialized()
@@ -52,7 +52,7 @@ public:
         Wire.write(1 << channel);
         Wire.endTransmission();
         currentChannel = channel;
-        //vTaskDelay(pdMS_TO_TICKS(2)); // Short delay to allow channel switching to stabilize
+        // vTaskDelay(pdMS_TO_TICKS(2)); // Short delay to allow channel switching to stabilize
     }
 
 private:
