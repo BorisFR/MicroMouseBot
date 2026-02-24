@@ -1,0 +1,14 @@
+Dimensions
+< 100 x 80
+
+Le PCB est le chassis du robot.
+Pas de composants CMS (soudure simple), pas de SMD
+Que des composants traversants
+
+
+Gearmotors N20 (engrenages)
+ratio 30:1 ?
+
+Toshiba TB6612FNG motor controller
+
+PP3 battery

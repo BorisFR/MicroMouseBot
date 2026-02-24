@@ -36,6 +36,7 @@ public:
         Wire.begin(SENSORS_SDA_PIN, SENSORS_SCL_PIN);
         Wire.setClock(SENSORS_I2C_SPEED);
         vTaskDelay(pdMS_TO_TICKS(2)); // Short delay to allow I2C bus to stabilize
+        esp_log_level_set("i2c.master", ESP_LOG_NONE);
     }
 
     void begin()

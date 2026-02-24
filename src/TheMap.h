@@ -4,6 +4,7 @@
 #include "Globals.h"
 #include <vector>
 #include <string>
+#include "PSRAM2DArray.h"
 
 struct LidarReading
 {
@@ -14,7 +15,7 @@ struct LidarReading
 class TheMap
 {
 public:
-    TheMap() {}
+    TheMap() : grid(MAP_WIDTH, MAP_HEIGHT) {}
 
     ~TheMap() { myTrace.println("🗺️ unloaded"); }
 
@@ -37,7 +38,9 @@ public:
     {
         if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT)
         {
-            return static_cast<CellState>(grid[x][y]);
+            // return static_cast<CellState>(grid[x][y]);
+            CellState temp = static_cast<CellState>(grid.at(x, y));
+            return temp;
         }
         return CELL_UNKNOWN; // Out of bounds
     }
@@ -46,10 +49,11 @@ public:
     {
         if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT)
         {
-            if (state != grid[x][y])
+            if (state != grid.at(x, y))
             {
                 changedMap = true;
-                grid[x][y] = state;
+                //grid[x][y] = state;
+                grid.at(x, y) = state;
             }
         }
     }
@@ -137,7 +141,7 @@ private:
         {
             for (int y = 0; y < MAP_HEIGHT; y++)
             {
-                grid[x][y] = CELL_UNKNOWN;
+                grid.at(x, y) = CELL_UNKNOWN;
             }
         }
     }
@@ -183,7 +187,8 @@ private:
         }
     }
 
-    CellState grid[MAP_WIDTH][MAP_HEIGHT];
+    // CellState grid[MAP_WIDTH][MAP_HEIGHT];
+    PSRAM2DArray<CellState> grid; //(MAP_WIDTH, MAP_HEIGHT);
 };
 
 #endif // THE_MAP_H

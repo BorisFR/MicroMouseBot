@@ -44,6 +44,7 @@ public:
 
     void selectChannel(uint8_t channel)
     {
+        if(!initialized) return;
         if (channel == currentChannel)
             return;
         if (channel > 7)
