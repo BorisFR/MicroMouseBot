@@ -25,7 +25,8 @@ public:
     {
         myTrace.println("SensorVL53L0X setup");
         sensor.setBus(&Wire);
-        sensor.setTimeout(20);
+        sensor.setAddress(VL53L0x_ADDRESS);
+        sensor.setTimeout(VL53L0x_TIMEOUT);
         uint8_t countAttempts = 0;
         while (!sensor.init())
         {

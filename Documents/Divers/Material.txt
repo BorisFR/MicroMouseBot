@@ -4,58 +4,38 @@ GPIO extender via I2C : CH423
 16 GPO (OUT) + 8 GPIO (In/Out) avec interrupt
 address I2C: de 0x20 à 0x3F
 
-Horloge temps réel (RTC) : DS3231
-==========================
-Nécessite une pile rechargeable : LIR2032
-Address RTC : 0x68
-Address EEPROM : 0x57
-Lib : RTCLIB by Adafruit
-
-Ecran : ILI8341 240x320 SPI avec Touch
-=======
-Soudé J1 pour passer de 5V à 3.3V
-Lib : TFT_eSPI by Bodmer
-
-
-Adafruit LSM6DSOX + LIS3MDL - Precision 9 DoF IMU - STEMMA QT / Qwiic
-https://github.com/adafruit/Adafruit_AHRS
-https://www.adafruit.com/product/4517
-https://cdn-learn.adafruit.com/downloads/pdf/how-to-fuse-motion-sensor-data-into-ahrs-orientation-euler-quaternions.pdf
-
-LSM6DS3TR-C
-https://www.adafruit.com/product/5543
-https://learn.adafruit.com/how-to-fuse-motion-sensor-data-into-ahrs-orientation-euler-quaternions
-
-
 
 ESP32-S3 : ESP32-S3R8n16 PID 0x303a / VID 0x1001 N16R8 => 16MB (Quad SPI) PSRAM 8MB (Octal SPI)
 ==========
 https://github.com/platformio/platform-espressif32/blob/master/boards/4d_systems_esp32s3_gen4_r8n16.json
 
-
-                    3.3             GND
-                    3.3             TX
-                    RST             RX
-                    4               1   SDA
-                    5               2   SCL
-                    6               42
-                    7               41
-                    15              40
-                    16              39  
-                    17              38  
-ILI9341 BackLight   18              37  
-ILI9341 RST         8               36  
-               JTAG 3               35  
-                    46              0  BOOT
-ILI9341 DC          9               45 VPSI
-ILI9341 CS          10              48
-ILI9341 MOSI        11              47
-ILI9341 SCLK        12              21
-ILI9341 MISO        13              20 USB_D+
-XPT2046 TOUCH CS    14              19 USB_D-
-                    5V              GND
-                    GND5V           GND
-
+                             +------+
+                             |      |
+                    3.3   +--+------+--+ GND
+                    3.3   |  |      |  | TX
+                    RST   |  |      |  | RX
+                    4     |  |      |  | 1   SDA
+                    5     |  |      |  | 2   SCL
+                    6     |  |      |  | 42
+                    7     |  +------+  | 41
+                    15    |            | 40
+                    16    |            | 39  
+                    17    |            | 38  
+ILI9341 BackLight   18    |            | 37  
+ILI9341 RST         8     |   48       | 36  
+               JTAG 3     |  +-+       | 35  
+                    46    |  | |       | 0  BOOT
+ILI9341 DC          9     |  +-+       | 45 VPSI
+ILI9341 CS          10    |  LED       | 48
+ILI9341 MOSI        11    |            | 47
+ILI9341 SCLK        12    |            | 21
+ILI9341 MISO        13    |            | 20 USB_D+
+XPT2046 TOUCH CS    14    |            | 19 USB_D-
+                    5V    |            | GND
+                    GND5V |  +-+  +-+  | GND
+                          +--| |--| |--+
+                             +-+  +-+
+                             
 48 LED
 
 
@@ -167,29 +147,10 @@ RTC_GPIO19 (GPIO19)
 RTC_GPIO20 (GPIO20)
 RTC_GPIO21 (GPIO21)
 
-Lorsque vous utilisez l’ESP32-S3 avec l’IDE Arduino, voici les broches par défaut de l’ESP32 I2C :
-GPIO8 (SDA)
-GPIO9 (SCL)
-
-L’ESP32 intègre 4 périphériques SPI : SPI0, SPI1, SPI2 (communément appelé HSPI) et SPI3 (communément appelé VSPI).
-SP0 et SP1 sont utilisés en interne pour communiquer avec la mémoire flash intégrée et vous ne devez pas les 
-utiliser pour d’autres tâches.
-Vous pouvez utiliser HSPI et VSPI pour communiquer avec d’autres appareils. HSPI et VSPI ont des signaux de 
-bus indépendants.
-IPS	            MOSI	MISO	CLK	    CS
-HSPI (SPI 2)	GPIO11	GPIO13	GPIO12	GPIO10
-VSPI (SPI 3)	GPIO35	GPIO37	GPIO36	GPIO39
 
 
-Port UART	Émission	RX	Remarques
-UART0	GPIO43	GPIO44	Ne peut pas être modifié
-UART1	GPIO17	GPIO18	Peut être attribué à d’autres GPIO
-UART2	—	—	Attribuez les épingles de votre choix
 
-Utilisé par le boot, donc ne pas utiliser
-GPIO0
-GPIO3
-GPIO45
-GPIO46
+
+
 
 

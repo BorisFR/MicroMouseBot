@@ -4,6 +4,8 @@
 #include "Globals.h"
 
 // LSM6DS3TR-C  + LIS3MDL
+#include <Adafruit_LSM6DS3TRC.h>
+#include <Adafruit_LIS3MDL.h>
 
 class TheCompass
 {
@@ -16,20 +18,48 @@ public:
     {
         myTrace.println("🧭 setup");
         // Initialize compass hardware here
-        isInitialized = true; // Set to true if initialization is successful
     }
 
     void begin()
     {
+        if (lis3mdl.begin_I2C(LIS3MDL_ADDRESS))
+        {
+            myTrace.println("🧭 LIS3MDL initialized successfully");
+            lis3mdlInitialized = true;
+        }
+        else
+        {
+            myTrace.println("🧭 LIS3MDL initialization failed");
+        }
+
+        if (lsm6ds.begin_I2C(LSM6DS3_ADDRESS))
+        {
+            myTrace.println("🧭 LSM6DS3 initialized successfully");
+            lsm6dsInitialized = true;
+        }
+        else
+        {
+            myTrace.println("🧭 LSM6DS3 initialization failed");
+        }
+
+        isInitialized = lis3mdlInitialized && lsm6dsInitialized; // Set to true if initialization is successful
+        currentHeading = 0.0f;                                   // Initialize heading to a default value
         changeDetected = true;
         if (theCallbackValueChange)
-            theCallbackValueChange(0.0f); // Call with a default value of 0.0f to indicate that the compass is ready and has an initial heading value. This will allow the screen to update the compass status immediately after initialization.
+            theCallbackValueChange(currentHeading);
     }
 
     void loop()
     {
-        float newValue = 0.0f;                     // Placeholder value, replace with actual reading from the sensor
-        newValue += random(0, 10) / 10.0f - 0.5f;         // Simulate random changes in the heading for testing purposes
+        if (!isInitialized)
+            return; // Skip reading if not initialized
+        // Read compass data and update heading
+        sensors_event_t event;
+        lis3mdl.getEvent(&event);
+        float heading = atan2f(event.magnetic.y, event.magnetic.x);
+        if (heading < 0)
+            heading += 2 * PI;
+        float newValue = heading;
         if (abs(newValue - currentHeading) > 0.1f) // Example threshold for change detection
         {
             currentHeading = newValue;
@@ -37,6 +67,16 @@ public:
             if (theCallbackValueChange)
                 theCallbackValueChange(newValue);
         }
+
+        /*float newValue = 0.0f;                     // Placeholder value, replace with actual reading from the sensor
+        newValue += random(0, 10) / 10.0f - 0.5f;  // Simulate random changes in the heading for testing purposes
+        if (abs(newValue - currentHeading) > 0.1f) // Example threshold for change detection
+        {
+            currentHeading = newValue;
+            changeDetected = true;
+            if (theCallbackValueChange)
+                theCallbackValueChange(newValue);
+        }*/
     }
 
     bool isInitializedSuccessfully()
@@ -71,12 +111,27 @@ public:
         theCallbackValueChange = callback;
     }
 
+    bool isLIS3MDLInitialized()
+    {
+        return lis3mdlInitialized;
+    }
+
+    bool isLSM6DSInitialized()
+    {
+        return lsm6dsInitialized;
+    }
+
 private:
     bool isInitialized = false;
     EVENT_ERROR theCallbackError;
     bool changeDetected = false;
     float currentHeading = 0.0f;
     EVENT_CHANGE_WITH_FLOAT theCallbackValueChange;
+
+    Adafruit_LIS3MDL lis3mdl;
+    Adafruit_LSM6DS3TRC lsm6ds;
+    bool lis3mdlInitialized = false;
+    bool lsm6dsInitialized = false;
 };
 
 #endif // THE_COMPASS_H

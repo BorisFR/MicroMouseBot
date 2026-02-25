@@ -152,8 +152,11 @@ private:
         for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
             theScreen.showVL53L0Xstate(i, allSensors.isSensorInitialized(i), allSensors.isSensorErrorDetected(i), lastFrame.distances[i]);
 
-        if (lastFrame.headingValid)
+        if (lastFrame.headingValid) {
+            theScreen.showGyro(allSensors.isGyroReady(), allSensors.isGyroErrorDetected(), allSensors.getGyroHeading());
+            theScreen.showMagnetometer(allSensors.isMagnetometerReady(), allSensors.isMagnetometerErrorDetected(), allSensors.getMagnetometerHeading());
             theScreen.showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), lastFrame.heading);
+        }
     }
 };
 

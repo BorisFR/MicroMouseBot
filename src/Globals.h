@@ -27,9 +27,10 @@ extern MyTrace myTrace;
 // Sensors
 //#define PCA9548A_ADDRESS 0x70
 //#define PCA9548A_RESET_PIN 42
-#define BUS_TO_SCAN 5
+#define BUS_TO_SCAN 6 // Number of I2C buses to scan for sensors (0 to 7 for PCA9548A)
 #define VL53L0X_COUNT 5
 #define VL53L0X_ERROR_READING_COUNT_THRESHOLD 5
+#define COMPASS_CHANNEL 5
 #define CAR_SENSOR_FRONT_INDEX 0
 #define CAR_SENSOR_LEFT_INDEX 1
 #define CAR_SENSOR_RIGHT_INDEX 2

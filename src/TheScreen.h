@@ -146,13 +146,70 @@ public:
         }
     }
 
-    void showIMUstate(bool isInitialized, bool isError, float value)
+    void showGyro(bool isInitialized, bool isError, float value)
     {
         if (currentScreen == SCREEN_STATE)
         {
             display.fillRect(4, 50 + VL53L0X_COUNT * 15, currentWidth() - 8, 15, TFT_BLACK); // Clear previous status
             display.setTextColor(TFT_WHITE, TFT_BLACK);
             int32_t y = 50 + VL53L0X_COUNT * 15;
+            if (isInitialized)
+            {
+                if (isError)
+                {
+                    showErrorIcon(4, y, 8);
+                    display.drawString("Gyro Error", 20, y, 1);
+                }
+                else
+                {
+                    showOkIcon(4, y, 8);
+                    display.drawString("Gyro OK (" + String(value, 2) + " rad)", 20, y, 1);
+                }
+            }
+            else
+            {
+                showErrorIcon(4, y, 8);
+                display.drawString("Gyro Not Init", 20, y, 1);
+            }
+        }
+    }
+
+    void showMagnetometer(bool isInitialized, bool isError, float value)
+    {
+        if (currentScreen == SCREEN_STATE)
+        {
+
+            display.fillRect(4, 50 + (VL53L0X_COUNT + 1) * 15, currentWidth() - 8, 15, TFT_BLACK); // Clear previous status
+            display.setTextColor(TFT_WHITE, TFT_BLACK);
+            int32_t y = 50 + (VL53L0X_COUNT + 1) * 15;
+            if (isInitialized)
+            {
+                if (isError)
+                {
+                    showErrorIcon(4, y, 8);
+                    display.drawString("Magnetometer Error", 20, y, 1);
+                }
+                else
+                {
+                    showOkIcon(4, y, 8);
+                    display.drawString("Magnetometer OK (" + String(value, 2) + " rad)", 20, y, 1);
+                }
+            }
+            else
+            {
+                showErrorIcon(4, y, 8);
+                display.drawString("Magnetometer Not Init", 20, y, 1);
+            }
+        }
+    }
+
+    void showIMUstate(bool isInitialized, bool isError, float value)
+    {
+        if (currentScreen == SCREEN_STATE)
+        {
+            display.fillRect(4, 50 + (VL53L0X_COUNT + 2) * 15, currentWidth() - 8, 15, TFT_BLACK); // Clear previous status
+            display.setTextColor(TFT_WHITE, TFT_BLACK);
+            int32_t y = 50 + (VL53L0X_COUNT + 2) * 15;
             if (isInitialized)
             {
                 if (isError)
@@ -252,6 +309,8 @@ public:
                 display.drawString("Sensor " + String(i) + " Not Init", 20, y, 1);
             }*/
         }
+        showGyro(allSensors.isGyroReady(), allSensors.isGyroErrorDetected(), allSensors.getGyroHeading());
+        showMagnetometer(allSensors.isMagnetometerReady(), allSensors.isMagnetometerErrorDetected(), allSensors.getMagnetometerHeading());
         showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), allSensors.getHeading());
         /*if (allSensors.isIMUinitializedSuccessfully())
         {

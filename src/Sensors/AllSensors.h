@@ -73,7 +73,6 @@ public:
             if (theCallbackSensorWithIndexAndValue)
                 theCallbackSensorWithIndexAndValue(i, 0); // Call with a default value of 0 to indicate that the sensor is ready and has an initial distance value. This will allow the screen to update the sensor status immediately after initialization.
         }
-        // doFullScan();
 
         theCompass.setup();
         theCompass.eventChangeValue([this](float value)
@@ -86,7 +85,10 @@ public:
                               { myTrace.println("🚨 Compass error detected");
                                 if (theCallbackIMU)
                                     theCallbackIMU(0); });
+        hubPCA9548A.selectChannel(COMPASS_CHANNEL);
         theCompass.begin();
+
+        doFullScan();
     }
 
     void loop()
@@ -104,6 +106,7 @@ public:
                 }
             }
         }
+        hubPCA9548A.selectChannel(COMPASS_CHANNEL);
         theCompass.loop();
     }
 
@@ -178,6 +181,32 @@ public:
     bool isIMUinitializedSuccessfully()
     {
         return theCompass.isInitializedSuccessfully();
+    }
+
+    bool isGyroReady() {
+        return theCompass.isLSM6DSInitialized();
+    }
+
+    bool isGyroErrorDetected() {
+        return false; // Placeholder, implement actual error detection logic for the gyro if available. For now, we are not simulating gyro errors, so we return false to indicate no error.
+        // return theCompass.isErrorDetected(); // Using error detection as a proxy for error state for simplicity
+    }
+
+    float getGyroHeading() {
+        return theCompass.getHeading(); // For simplicity, we are using the same heading value for both gyro and magnetometer in this example. In a real implementation, you would get the gyro heading from the appropriate sensor reading.
+    }
+
+    bool isMagnetometerReady() {
+        return theCompass.isLIS3MDLInitialized();
+    }
+
+    bool isMagnetometerErrorDetected() {
+        return false; // Placeholder, implement actual error detection logic for the magnetometer if available. For now, we are not simulating magnetometer errors, so we return false to indicate no error.
+        // return theCompass.isErrorDetected(); // Using error detection as a proxy for error state for simplicity
+    }
+
+    float getMagnetometerHeading() {
+        return theCompass.getHeading(); // For simplicity, we are using the same heading value for both gyro and magnetometer in this example. In a real implementation, you would get the magnetometer heading from the appropriate sensor reading.
     }
 
     bool isIMUErrorDetected()

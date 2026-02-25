@@ -1,0 +1,26 @@
+🕵️  Full Scanning...
+🕵️  Scanning I2C bus 0
+🕵️  I2C device found at address 0x52
+🕵️  I2C device found at address 0x70
+🕵️  Scan complete
+🕵️  Scanning I2C bus 1
+🕵️  I2C device found at address 0x52
+🕵️  I2C device found at address 0x70
+🕵️  Scan complete
+🕵️  Scanning I2C bus 2
+🕵️  I2C device found at address 0x52
+🕵️  I2C device found at address 0x70
+🕵️  Scan complete
+🕵️  Scanning I2C bus 3
+🕵️  I2C device found at address 0x52
+🕵️  I2C device found at address 0x70
+🕵️  Scan complete
+🕵️  Scanning I2C bus 4
+🕵️  I2C device found at address 0x52
+🕵️  I2C device found at address 0x70
+🕵️  Scan complete
+🕵️  Scanning I2C bus 5
+🕵️  I2C device found at address 0x1C
+🕵️  I2C device found at address 0x6A
+🕵️  I2C device found at address 0x70
+🕵️  Scan complete
