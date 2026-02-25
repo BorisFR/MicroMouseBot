@@ -8,3 +8,66 @@ Magnetometer data rate set to: 155 Hz
 Range set to: +-4 gauss
 Magnetometer performance mode set to: Medium
 Magnetometer operation mode set to: Continuous
+
+
+1/ sketch IMUcalibation  
+utiliser le programme MotionCal.exe  
+2/ IMUcalibrationRead  
+pour vérifier que la sauvegarde soit bien ok  
+3/ IMUorientation  
+avec le site web https://adafruit.github.io/Adafruit_WebSerial_3DModelViewer/  
+pour vérifier que cela fonctionne bien  
+
+Adafruit AHRS - IMU Calibration!
+Calibration filesys test
+Loaded existing calibration
+------------------------------------
+Sensor:       LSM6DS_A
+Type:         Acceleration (m/s2)
+Driver Ver:   1
+Unique ID:    1745
+Min Value:    -156.91
+Max Value:    156.91
+Resolution:   0.06
+------------------------------------
+------------------------------------
+Sensor:       LSM6DS_G
+Type:         Gyroscopic (rad/s)
+Driver Ver:   1
+Unique ID:    1746
+Min Value:    -34.91
+Max Value:    34.91
+Resolution:   0.00
+------------------------------------
+------------------------------------
+Sensor:       LIS3MDL
+Type:         Magnetic (uT)
+Driver Ver:   1
+Unique ID:    0
+Min Value:    -1600.00
+Max Value:    1600.00
+Resolution:   0.01
+------------------------------------
+
+Raw:7808,1486,2107,-80,238,-3,-578,-270,-648
+Uni:9.34,1.78,2.52,-0.0881,0.2605,-0.0038,-57.82,-27.04,-64.88
+Raw:7809,1474,2065,-84,266,42,-582,-266,-648
+Uni:9.34,1.76,2.47,-0.0919,0.2911,0.0467,-58.21,-26.62,-64.86
+
+
+Calibration filesys test
+Has EEPROM: 1
+Has FLASH: 0
+------------
+0x75, 0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xD0, 0x54, 0xB4, 0xC1, 0xF9, 0x86, 
+0x6A, 0xBF, 0x9D, 0x2E, 0x6A, 0xC2, 0x0B, 0x2E, 0x34, 0x42, 0x0E, 0x84, 0x7F, 0x3F, 0xBA, 0x6D, 
+0x7F, 0x3F, 0xFF, 0xB7, 0x80, 0x3F, 0x31, 0xFB, 0x0B, 0x3D, 0x92, 0x79, 0xD8, 0xBA, 0x12, 0x6D, 
+0x8D, 0xBC, 0x8B, 0x2B, 
+------------
+Calibrations found: 
+	Magnetic Hard Offset: -22.54, -0.92, -58.55
+	Magnetic Soft Offset: 1.00, 0.03, -0.00, 0.03, 1.00, -0.02, -0.00, -0.02, 1.01
+	Magnetic Field Magnitude: 45.04
+	Gyro Zero Rate Offset: 0.00, 0.00, 0.00
+	Accel Zero G Offset: 0.00, 0.00, 0.00

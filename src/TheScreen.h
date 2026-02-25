@@ -45,19 +45,19 @@ enum ScreenState
 #define CAR_SENSOR_LENGTH 0.1f                                             // cm, length of the front sensor (for visualization on the screen)
 #define CAR_SENSOR_FRONT_X_OFFSET (CAR_WIDTH / 2 - CAR_SENSOR_WIDTH / 2)   // cm, distance from the center of the car to the front edge where the front sensor is located
 #define CAR_SENSOR_FRONT_Y_OFFSET 0                                        // cm, distance from the center of the car to the front edge where the front sensor is located
-#define CAR_SENSOR_FRONT_ROTATE_OFFSET 0.0f                                // radians, rotation offset of the front sensor relative to the car's forward direction
+#define CAR_SENSOR_FRONT_ROTATE_OFFSET 0.0f                                // degrees, rotation offset of the front sensor relative to the car's forward direction
 #define CAR_SENSOR_LEFT_X_OFFSET -CAR_SENSOR_WIDTH / 2                     // cm, distance from the center of the car to the left edge where the left sensor is located
 #define CAR_SENSOR_LEFT_Y_OFFSET (CAR_LENGTH / 2 - CAR_SENSOR_LENGTH / 2)  // cm, distance from the center of the car to the left edge where the left sensor is located
-#define CAR_SENSOR_LEFT_ROTATE_OFFSET (PI / 2)                             // radians, rotation offset of the left sensor relative to the car's forward direction
+#define CAR_SENSOR_LEFT_ROTATE_OFFSET (90.0f)                             // degrees, rotation offset of the left sensor relative to the car's forward direction
 #define CAR_SENSOR_RIGHT_X_OFFSET (CAR_WIDTH - CAR_SENSOR_WIDTH / 2)       // cm, distance from the center of the car to the right edge where the right sensor is located
 #define CAR_SENSOR_RIGHT_Y_OFFSET (CAR_LENGTH / 2 - CAR_SENSOR_LENGTH / 2) // cm, distance from the center of the car to the right edge where the right sensor is located
-#define CAR_SENSOR_RIGHT_ROTATE_OFFSET (-PI / 2)                           // radians, rotation offset of the right sensor relative to the car's forward direction
+#define CAR_SENSOR_RIGHT_ROTATE_OFFSET (-90.0f)                           // degrees, rotation offset of the right sensor relative to the car's forward direction
 #define CAR_SENSOR_TOP_LEFT_X_OFFSET 0                                     // cm, distance from the center of the car to the top left edge where the top left sensor is located
 #define CAR_SENSOR_TOP_LEFT_Y_OFFSET (CAR_SENSOR_WIDTH / 2)                // cm, distance from the center of the car to the top left edge where the top left sensor is located
-#define CAR_SENSOR_TOP_LEFT_ROTATE_OFFSET (-PI / 4)                        // radians, rotation offset of the top left sensor relative to the car's forward direction
+#define CAR_SENSOR_TOP_LEFT_ROTATE_OFFSET (-45.0f)                        // degrees, rotation offset of the top left sensor relative to the car's forward direction
 #define CAR_SENSOR_TOP_RIGHT_X_OFFSET (CAR_WIDTH - CAR_SENSOR_WIDTH)       // cm, distance from the center of the car to the top right edge where the top right sensor is located
 #define CAR_SENSOR_TOP_RIGHT_Y_OFFSET (CAR_SENSOR_WIDTH / 2)               // cm, distance from the center of the car to the top right edge where the top right sensor is located
-#define CAR_SENSOR_TOP_RIGHT_ROTATE_OFFSET (PI / 4)                        // radians, rotation offset of the top right sensor relative to the car's forward direction
+#define CAR_SENSOR_TOP_RIGHT_ROTATE_OFFSET (45.0f)                        // degrees, rotation offset of the top right sensor relative to the car's forward direction
 
 class TheScreen
 {
@@ -163,7 +163,7 @@ public:
                 else
                 {
                     showOkIcon(4, y, 8);
-                    display.drawString("Gyro OK (" + String(value, 2) + " rad)", 20, y, 1);
+                    display.drawString("Gyro OK (" + String(value, 2) + " deg)", 20, y, 1);
                 }
             }
             else
@@ -192,7 +192,7 @@ public:
                 else
                 {
                     showOkIcon(4, y, 8);
-                    display.drawString("Magnetometer OK (" + String(value, 2) + " rad)", 20, y, 1);
+                    display.drawString("Magnetometer OK (" + String(value, 2) + " deg)", 20, y, 1);
                 }
             }
             else
@@ -203,7 +203,7 @@ public:
         }
     }
 
-    void showIMUstate(bool isInitialized, bool isError, float value)
+    void showIMUstate(bool isInitialized, bool isError, bool isCalibrated, float value)
     {
         if (currentScreen == SCREEN_STATE)
         {
@@ -219,8 +219,14 @@ public:
                 }
                 else
                 {
-                    showOkIcon(4, y, 8);
-                    display.drawString("IMU OK (" + String(value, 2) + " rad)", 20, y, 1);
+                    if (isCalibrated)
+                    {
+                        showOkIcon(4, y, 8);
+                        display.drawString("IMU OK & Calibrated (" + String(value, 2) + " deg)", 20, y, 1);
+                    } else {
+                        showWarningIcon(4, y, 8);
+                        display.drawString("IMU OK (Not Calibrated) (" + String(value, 2) + " deg)", 20, y, 1);
+                    }
                 }
             }
             else
@@ -253,6 +259,13 @@ public:
         display.fillRect(x, y, size, size, TFT_BLACK);
         display.drawLine(x, y, x + size, y + size, TFT_RED);
         display.drawLine(x + size, y, x, y + size, TFT_RED);
+    }
+    void showWarningIcon(int32_t x, int32_t y, int32_t size)
+    {
+        // Draw a simple warning icon (e.g., a yellow exclamation mark) at the specified position
+        display.fillRect(x, y, size, size, TFT_BLACK);
+        display.drawLine(x + size / 2, y, x + size / 2, y + size * 0.75, TFT_YELLOW);
+        display.fillCircle(x + size / 2, y + size * 0.875, size / 8, TFT_YELLOW);
     }
 
     void showOkIcon(int32_t x, int32_t y, int32_t size)
@@ -311,7 +324,7 @@ public:
         }
         showGyro(allSensors.isGyroReady(), allSensors.isGyroErrorDetected(), allSensors.getGyroHeading());
         showMagnetometer(allSensors.isMagnetometerReady(), allSensors.isMagnetometerErrorDetected(), allSensors.getMagnetometerHeading());
-        showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), allSensors.getHeading());
+        showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), allSensors.isIMUCalibrated(), allSensors.getHeading());
         /*if (allSensors.isIMUinitializedSuccessfully())
         {
             showOkIcon(4, 50 + VL53L0X_COUNT * 15, 8);
@@ -533,6 +546,8 @@ public:
 
     void fillRectRotated(int32_t x, int32_t y, int32_t w, int32_t h, float theta, uint32_t color)
     {
+        // convert theta from degrees to radians
+        float thetaRad = theta * PI / 180.0f;
         // Calculate the center of the rectangle
         float centerX = x + w / 2.0f;
         float centerY = y + h / 2.0f;
@@ -549,8 +564,8 @@ public:
         {
             float dx = corners[i][0] - centerX;
             float dy = corners[i][1] - centerY;
-            float rotatedX = dx * cos(theta) - dy * sin(theta);
-            float rotatedY = dx * sin(theta) + dy * cos(theta);
+            float rotatedX = dx * cos(thetaRad) - dy * sin(thetaRad);
+            float rotatedY = dx * sin(thetaRad) + dy * cos(thetaRad);
             corners[i][0] = centerX + rotatedX;
             corners[i][1] = centerY + rotatedY;
         }

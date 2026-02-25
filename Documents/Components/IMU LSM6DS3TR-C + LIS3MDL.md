@@ -18,3 +18,12 @@ https://cdn-learn.adafruit.com/downloads/pdf/how-to-fuse-motion-sensor-data-into
 LSM6DS3TR-C  
 https://www.adafruit.com/product/5543  
 https://learn.adafruit.com/how-to-fuse-motion-sensor-data-into-ahrs-orientation-euler-quaternions  
+
+
+## AHRS  
+Attitude and heading reference system  
+https://en.wikipedia.org/wiki/Attitude_and_heading_reference_system  
+
+### Calibrage  
+https://www.pjrc.com/store/prop_shield.html  
+Install motioncal.exe

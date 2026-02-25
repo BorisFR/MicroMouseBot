@@ -230,6 +230,11 @@ public:
         return theCompass.getHeading();
     }
 
+    bool isIMUCalibrated()
+    {
+        return theCompass.isCalibrationLoaded(); // Using calibration loaded state as a proxy for calibration success for simplicity
+    }
+
 private:
     HubPCA9548A hubPCA9548A;
     SensorVL53L0X sensorVL53L0X[VL53L0X_COUNT]; // 1 sensor on each hub channel
