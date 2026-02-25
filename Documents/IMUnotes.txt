@@ -1,0 +1,10 @@
+🧭 LIS3MDL initialized successfully
+🧭 LSM6DS3 initialized successfully
+Accelerometer range set to: +-4G
+Accelerometer data rate set to: 104 Hz
+Gyro range set to: 2000 degrees/s
+Gyro data rate set to: 104 Hz
+Magnetometer data rate set to: 155 Hz
+Range set to: +-4 gauss
+Magnetometer performance mode set to: Medium
+Magnetometer operation mode set to: Continuous
