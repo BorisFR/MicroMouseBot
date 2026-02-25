@@ -8,6 +8,7 @@
 #include <Adafruit_LIS3MDL.h>
 #include <Adafruit_Sensor_Calibration_EEPROM.h>
 #include <Adafruit_AHRS_NXPFusion.h>
+#include <math.h>
 #define FILTER_UPDATE_RATE_HZ 100
 
 class TheCompass
@@ -296,16 +297,19 @@ public:
         //  /* Get new normalized sensor events */
         lsm6ds.getEvent(&accel, &gyro, &temp);
         lis3mdl.getEvent(&mag);
-        calibration.calibrate(mag);
-        calibration.calibrate(accel);
-        calibration.calibrate(gyro);
+        if(isCalibrationLoaded())
+        {
+            calibration.calibrate(mag);
+            calibration.calibrate(accel);
+            calibration.calibrate(gyro);
+        }
         float gx = gyro.gyro.x * SENSORS_RADS_TO_DPS;
         float gy = gyro.gyro.y * SENSORS_RADS_TO_DPS;
         float gz = gyro.gyro.z * SENSORS_RADS_TO_DPS;
         filter.update(gx, gy, gz, accel.acceleration.x, accel.acceleration.y, accel.acceleration.z, mag.magnetic.x, mag.magnetic.y, mag.magnetic.z);
 
-        float roll = filter.getRoll();
-        float pitch = filter.getPitch();
+        //float roll = filter.getRoll();
+        //float pitch = filter.getPitch();
         float heading = filter.getYaw();
         // float qw, qx, qy, qz;
         // filter.getQuaternion(&qw, &qx, &qy, &qz);
@@ -313,24 +317,13 @@ public:
         if (heading < 0)
             heading += 2 * PI;
         float newValue = heading;*/
-        // if (abs(heading - currentHeading) > 0.1f) // Example threshold for change detection
-        if (heading != currentHeading) // Detect any change in heading
+        if (fabsf(heading - currentHeading) > HEADING_EPSILON_DEG) // Avoid noisy updates
         {
             currentHeading = heading;
             changeDetected = true;
             if (theCallbackValueChange)
                 theCallbackValueChange(heading);
         }
-
-        /*float newValue = 0.0f;                     // Placeholder value, replace with actual reading from the sensor
-        newValue += random(0, 10) / 10.0f - 0.5f;  // Simulate random changes in the heading for testing purposes
-        if (abs(newValue - currentHeading) > 0.1f) // Example threshold for change detection
-        {
-            currentHeading = newValue;
-            changeDetected = true;
-            if (theCallbackValueChange)
-                theCallbackValueChange(newValue);
-        }*/
     }
 
     bool isCalibrationLoaded()
@@ -345,7 +338,7 @@ public:
 
     float getHeading()
     {
-        // Return the current heading in radians (0 to 2*PI)
+        // Return the current heading in degrees
         // You can use a magnetometer sensor to get the heading
         return currentHeading; // Return the current heading value
     }
@@ -381,6 +374,7 @@ public:
     }
 
 private:
+    static constexpr float HEADING_EPSILON_DEG = 0.2f;
     bool isInitialized = false;
     EVENT_ERROR theCallbackError;
     bool changeDetected = false;

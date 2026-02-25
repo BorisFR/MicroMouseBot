@@ -37,10 +37,10 @@ extern MyTrace myTrace;
 #define CAR_SENSOR_TOP_LEFT_INDEX 3
 #define CAR_SENSOR_TOP_RIGHT_INDEX 4
 #define CAR_SENSOR_FRONT_DIRECTION 0.0f
-#define CAR_SENSOR_LEFT_DIRECTION (PI / 2)
-#define CAR_SENSOR_RIGHT_DIRECTION (-PI / 2)
-#define CAR_SENSOR_TOP_LEFT_DIRECTION (PI / 4)
-#define CAR_SENSOR_TOP_RIGHT_DIRECTION (-PI / 4)
+#define CAR_SENSOR_LEFT_DIRECTION 90.0f
+#define CAR_SENSOR_RIGHT_DIRECTION -90.0f
+#define CAR_SENSOR_TOP_LEFT_DIRECTION 45.0f
+#define CAR_SENSOR_TOP_RIGHT_DIRECTION -45.0f
 
 #include "Sensors/AllSensors.h"
 extern AllSensors allSensors;
@@ -72,7 +72,7 @@ struct BotPose
 {
     uint16_t x;  // centimeters
     uint16_t y;  // centimeters
-    float theta; // radians
+    float theta; // degrees
 };
 
 #include "TheMap.h"

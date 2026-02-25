@@ -403,8 +403,9 @@ public:
         int arrowY = carOffsetY + CAR_LENGTH * CAR_SCALE_CM_TO_SCREEN / 2;
         int arrowLength = 10;
         int arrowWidth = 3;
-        int endX = arrowX + arrowLength * cos(pose->theta);
-        int endY = arrowY - arrowLength * sin(pose->theta);
+        float thetaRad = pose->theta * PI / 180.0f;
+        int endX = arrowX + arrowLength * cos(thetaRad);
+        int endY = arrowY - arrowLength * sin(thetaRad);
         display.fillCircle(arrowX, arrowY, arrowLength + 2, TFT_BLACK);
         // draw an arrow from (arrowX, arrowY) to (endX, endY) with the specified width and color
         display.drawLine(arrowX, arrowY, endX, endY, green());

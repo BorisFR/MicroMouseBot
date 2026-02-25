@@ -16,7 +16,7 @@ public:
         // Initialize car hardware here (motors, encoders, etc.)
         if (pose)
         {
-            *pose = {9, 9, 0.0f}; // Start at (1, 1) facing right (0 radians)
+            *pose = {9, 9, 0.0f}; // Start at (1, 1) facing right (0 degrees)
         }
     }
 
@@ -38,13 +38,14 @@ public:
         {
             return;
         }
-        pose->x += distance * cos(pose->theta);
-        pose->y += distance * sin(pose->theta);
+        float thetaRad = pose->theta * PI / 180.0f;
+        pose->x += distance * cos(thetaRad);
+        pose->y += distance * sin(thetaRad);
     }
 
     void turn(float angle)
     {
-        // Turn the car by the specified angle (in radians)
+        // Turn the car by the specified angle (in degrees)
         // Positive angle for clockwise, negative for counterclockwise
         // You can use motor encoders to achieve precise turning
         if (!pose)

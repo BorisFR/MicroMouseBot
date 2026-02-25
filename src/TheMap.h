@@ -8,7 +8,7 @@
 
 struct LidarReading
 {
-    float angle;       // radians
+    float angle;       // degrees
     uint16_t distance; // centimeters
 };
 
@@ -78,10 +78,11 @@ public:
             {
                 continue;
             }
-            float angle = pose->theta + reading.angle;
+            float angleDeg = pose->theta + reading.angle;
+            float angleRad = angleDeg * PI / 180.0f;
             uint16_t distance = reading.distance;
-            int cellX = static_cast<int>(pose->x + distance * cos(angle));
-            int cellY = static_cast<int>(pose->y + distance * sin(angle));
+            int cellX = static_cast<int>(pose->x + distance * cos(angleRad));
+            int cellY = static_cast<int>(pose->y + distance * sin(angleRad));
             markRayFree(pose->x, pose->y, cellX, cellY);
             if (distance > CELL_DISTANCE_THRESHOLD)
             {
