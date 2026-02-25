@@ -10,14 +10,14 @@ Ce document est bilingue. La section FR est suivie de la section EN, avec la mem
 
 ### 1) Vue d'ensemble
 
-Le socle capteurs, affichage et cartographie fonctionne. L'architecture est stabilisee autour d'un controleur central et d'une tache capteurs FreeRTOS. Les prochaines etapes critiques sont le controle moteur + odometrie, la fusion IMU, la coherence des coordonnees, puis la planification et la navigation autonome.
+Le socle capteurs, affichage et cartographie fonctionne. L'architecture est stabilisee autour d'un controleur central et d'une tache capteurs FreeRTOS. Les prochaines etapes critiques sont le controle moteur + odometrie, la fusion IMU/odo, la coherence des coordonnees, puis la planification et la navigation autonome.
 
 ### 2) Etat actuel (technique)
 
 - Orchestration centrale et ticks: OK (App + boucle principale).
 - Tache capteurs et queue FreeRTOS: OK.
 - Capteurs ToF VL53L0X via hub I2C: OK.
-- IMU LSM6DS3TR-C + LIS3MDL: init OK, calibration/fusion manquantes.
+- IMU LSM6DS3TR-C + LIS3MDL: AHRS OK, heading en degres, fusion IMU/odo en attente.
 - Cartographie: ray-tracing pour marquer l'espace libre OK.
 - UI TFT: ecrans et rafraichissement OK.
 - Controle moteur et odometrie: stubs uniquement.
@@ -34,9 +34,8 @@ P1 (Haute) - Controle moteur + odometrie
 - Driver moteurs, PID de base, encoders, mise a jour pose.
 - Necessite specs hardware (drivers, pins, CPR) a fournir.
 
-P2 (Haute) - IMU: calibration + fusion
-- Calibration magneto + gyro, compensation tilt.
-- Fusion IMU/odo pour une orientation plus stable.
+P2 (Haute) - Fusion IMU/odo
+- Fusion IMU/odo pour un heading stable.
 
 P3 (Moyenne) - Coherence coordonnees / grille
 - Normaliser `CELL_SIZE`, dimensions map, et indexation.
@@ -53,7 +52,8 @@ P5 (Moyenne) - Navigation autonome
 
 - Acces I2C: s'assurer que seuls la tache capteurs manipule le bus.
 - Saturation indices map: verifier les bornes sur longues mesures.
-- Orientation: heading magneto seul = derive et erreurs.
+- Orientation: AHRS sans odo = derive et erreurs.
+- Convention heading: zero et sens positif non verrouilles.
 
 ### 5b) Hypotheses actuelles
 
@@ -66,7 +66,7 @@ P5 (Moyenne) - Navigation autonome
 - P1: avance 50 cm, mesure erreur pose finale.
 - P1: rotation 90 deg, mesure erreur angle.
 - P2: heading stable a l'arret sur 60 s (derive max acceptable).
-- P2: rotation lente 360 deg, verify heading monotone.
+- P2: rotation lente 360 deg, verifier heading monotone.
 - P3: coherence map: un mur droit devient une ligne continue.
 
 ### 5d) Criteres d'acceptation (seuils initiaux)
@@ -79,9 +79,9 @@ P5 (Moyenne) - Navigation autonome
 
 ### 5e) Checklist logs (diagnostic)
 
-- Log IMU: timestamp, gyro Z, mag heading, heading fuse.
+- Log IMU: timestamp, gyro Z, heading AHRS (deg).
 - Log odo: ticks roue G/D, distance cumul, vitesse.
-- Log pose: x, y, theta, source (odo/imu/fuse).
+- Log pose: x, y, theta (deg), source (odo/imu/fuse).
 - Log map: compteur cellules maj, bornes min/max.
 - Log erreurs: i2c, capteurs, buffer queue.
 
@@ -91,6 +91,7 @@ P5 (Moyenne) - Navigation autonome
 - Encodeurs: type (quadrature), CPR, pins, sens positif.
 - Repere: origine, axes +x/+y, sens de rotation positive.
 - Grille: taille officielle (cm), `CELL_SIZE`, dimensions map.
+- Heading: unite degres, zero, sens positif, plage.
 - Fusion IMU/odo: methode cible (complementary, Madgwick, etc.).
 
 ### 6b) Inputs requis (mini tableau)
@@ -101,7 +102,8 @@ P5 (Moyenne) - Navigation autonome
 | Encodeurs | Type, CPR, pins, sens positif | A fournir |
 | Map | Dimensions reelles, `CELL_SIZE` | A valider |
 | Repere | Origine, axes, sens theta | A definir |
-| IMU | Methode de fusion, calibration | A definir |
+| Heading | Unite/plage/zero | A definir |
+| IMU | Calibration+AHRS OK, fusion IMU/odo | Partiel |
 
 ### 6c) Diagramme repere (ASCII)
 
@@ -123,15 +125,17 @@ theta = 0 le long de +x, sens positif a definir (horaire ou anti-horaire)
 - Definition officielle de la taille de map et du repere.
 - Format de grille (cm vs cellules) et conversion unique.
 - Methode de fusion IMU/odo (complementary, Madgwick, etc.).
+- Convention heading (plage, zero, sens).
 - Definitivement valider A* ou alternative.
 
 ### 8) Glossaire (court)
 
-- Pose: position + orientation du robot (x, y, theta).
+- Pose: position + orientation du robot (x, y, theta en degres).
 - Repere: definition du systeme d'axes et de l'origine.
 - Grille/cellule: discretisation de la map en cases.
 - Odometrie: estimation du mouvement via encodeurs moteurs.
-- Fusion: combinaison IMU + odometrie pour l'orientation.
+- AHRS: systeme de reference d'attitude et de cap.
+- Heading: cap/azimut en degres.
 
 ### 9) References (code)
 
@@ -149,14 +153,14 @@ theta = 0 le long de +x, sens positif a definir (horaire ou anti-horaire)
 
 ### 1) Overview
 
-The sensor, UI, and mapping foundation is working. The architecture is stabilized around a central controller and a FreeRTOS sensor task. The next critical steps are motor control + odometry, IMU fusion, coordinate consistency, then planning and autonomous navigation.
+The sensor, UI, and mapping foundation is working. The architecture is stabilized around a central controller and a FreeRTOS sensor task. The next critical steps are motor control + odometry, IMU/odo fusion, coordinate consistency, then planning and autonomous navigation.
 
 ### 2) Current status (technical)
 
 - Central orchestration and ticks: OK (App + main loop).
 - FreeRTOS sensor task and queue: OK.
 - VL53L0X ToF sensors via I2C hub: OK.
-- IMU LSM6DS3TR-C + LIS3MDL: init OK, calibration/fusion missing.
+- IMU LSM6DS3TR-C + LIS3MDL: AHRS OK, heading in degrees, IMU/odo fusion pending.
 - Mapping: ray-tracing free-space marking OK.
 - TFT UI: screens and refresh OK.
 - Motor control and odometry: stubs only.
@@ -173,8 +177,7 @@ P1 (High) - Motor control + odometry
 - Motor driver, basic PID, encoders, pose update.
 - Needs hardware specs (driver, pins, CPR) to proceed.
 
-P2 (High) - IMU: calibration + fusion
-- Magnetometer + gyro calibration, tilt compensation.
+P2 (High) - IMU/odo fusion
 - Fuse IMU + odo for stable heading.
 
 P3 (Medium) - Coordinate/grid consistency
@@ -192,7 +195,8 @@ P5 (Medium) - Autonomous navigation
 
 - I2C access: ensure only the sensor task touches the bus.
 - Map index saturation: verify bounds on long-range updates.
-- Heading: magnetometer-only heading is drift-prone.
+- Heading: AHRS without odo is drift-prone.
+- Heading convention: zero and positive sign not locked.
 
 ### 5b) Current assumptions
 
@@ -218,9 +222,9 @@ P5 (Medium) - Autonomous navigation
 
 ### 5e) Logging checklist (diagnostic)
 
-- IMU log: timestamp, gyro Z, mag heading, fused heading.
+- IMU log: timestamp, gyro Z, heading AHRS (deg).
 - Odo log: left/right ticks, cumulative distance, speed.
-- Pose log: x, y, theta, source (odo/imu/fuse).
+- Pose log: x, y, theta (deg), source (odo/imu/fuse).
 - Map log: updated cell count, min/max bounds.
 - Error log: i2c, sensors, queue buffer.
 
@@ -230,6 +234,7 @@ P5 (Medium) - Autonomous navigation
 - Encoders: type (quadrature), CPR, pins, positive direction.
 - Reference frame: origin, +x/+y axes, positive rotation.
 - Grid: official size (cm), `CELL_SIZE`, map dimensions.
+- Heading: unit/range/zero/positive sign.
 - IMU/odo fusion: target method (complementary, Madgwick, etc.).
 
 ### 6b) Inputs needed (mini table)
@@ -240,7 +245,8 @@ P5 (Medium) - Autonomous navigation
 | Encoders | Type, CPR, pins, positive direction | Needed |
 | Map | Real dimensions, `CELL_SIZE` | To confirm |
 | Frame | Origin, axes, theta sign | To define |
-| IMU | Fusion method, calibration | To define |
+| Heading | Unit/range/zero | To define |
+| IMU | Calibration+AHRS OK, IMU/odo fusion | Partial |
 
 ### 6c) Frame diagram (ASCII)
 
@@ -262,15 +268,17 @@ theta = 0 along +x, positive direction to define (clockwise or counterclockwise)
 - Official map size and reference frame.
 - Grid format (cm vs cells) and single conversion path.
 - IMU/odo fusion method (complementary, Madgwick, etc.).
+- Heading convention (range, zero, sign).
 - Confirm A* or alternative.
 
 ### 8) Glossary (short)
 
-- Pose: robot position + orientation (x, y, theta).
+- Pose: robot position + orientation (x, y, theta in degrees).
 - Frame: definition of axes and origin.
 - Grid/cell: map discretization into cells.
 - Odometry: motion estimation from wheel encoders.
-- Fusion: combining IMU + odometry for heading.
+- AHRS: attitude and heading reference system.
+- Heading: compass heading/azimuth in degrees.
 
 ### 9) References (code)
 
