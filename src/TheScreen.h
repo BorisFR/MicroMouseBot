@@ -113,7 +113,7 @@ public:
         pose = poseRef;
     }
 
-    void setMap(const TheMap *mapRef)
+    void setMap(TheMap *mapRef)
     {
         map = mapRef;
     }
@@ -313,44 +313,13 @@ public:
         if (currentScreen != SCREEN_STATE)
             return; // Only show sensor status if we are in the STATE screen
 
-        // display.fillRect(4, 50, currentWidth() - 8, VL53L0X_COUNT * 15, TFT_BLACK); // Clear previous sensor status
-        // display.setTextColor(TFT_WHITE, TFT_BLACK);
         for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
         {
             showVL53L0Xstate(i, allSensors.isSensorInitialized(i), allSensors.isSensorErrorDetected(i), allSensors.getLastDistance(i));
-            /*int32_t y = 50 + i * 15;
-            if (allSensors.isSensorInitialized(i))
-            {
-                if (allSensors.isSensorErrorDetected(i))
-                {
-                    showErrorIcon(4, y, 8);
-                    display.drawString("Sensor " + String(i) + " Error", 20, y, 1);
-                }
-                else
-                {
-                    showOkIcon(4, y, 8);
-                    display.drawString("Sensor " + String(i) + " OK", 20, y, 1);
-                }
-            }
-            else
-            {
-                showErrorIcon(4, y, 8);
-                display.drawString("Sensor " + String(i) + " Not Init", 20, y, 1);
-            }*/
         }
         showGyro(allSensors.isGyroReady(), allSensors.isGyroErrorDetected(), allSensors.getGyroHeading());
         showMagnetometer(allSensors.isMagnetometerReady(), allSensors.isMagnetometerErrorDetected(), allSensors.getMagnetometerHeading());
         showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), allSensors.isIMUCalibrated(), allSensors.getHeading());
-        /*if (allSensors.isIMUinitializedSuccessfully())
-        {
-            showOkIcon(4, 50 + VL53L0X_COUNT * 15, 8);
-            display.drawString("IMU OK", 20, 50 + VL53L0X_COUNT * 15, 1);
-        }
-        else
-        {
-            showErrorIcon(4, 50 + VL53L0X_COUNT * 15, 8);
-            display.drawString("IMU Not Init", 20, 50 + VL53L0X_COUNT * 15, 1);
-        }*/
     }
 
     // ************************************************************************
@@ -448,7 +417,9 @@ public:
         {
             for (int y = 0; y < MAP_HEIGHT; y++)
             {
-                //oldGrid[x][y] = CELL_REDRAW; // Force redraw of all cells on the map screen
+                CellState current = map->getCellState(x, y);
+                current |= CellState::CELL_NOT_CHANGED; // Force redraw of all cells on the map screen
+                map->setCellState(x, y, current);
             }
         }
     }
@@ -466,12 +437,14 @@ public:
             for (int y = 0; y < MAP_HEIGHT; y++)
             {
                 CellState current = map->getCellState(x, y);
-                /*if (current == oldGrid[x][y])
+                // test bit CELL_NOT_CHANGED
+                if(cellHasFlag(current, CellState::CELL_NOT_CHANGED))
                 {
                     continue; // No change, skip drawing
                 }
-                oldGrid[x][y] = current; // Update oldGrid with new value
-                */
+                current = static_cast<CellState>(
+                    static_cast<uint8_t>(current) & ~static_cast<uint8_t>(CellState::CELL_NOT_CHANGED)
+                ); // Clear the not changed bit for the next iteration
                 uint16_t color;
                 if (pose && x == pose->x && y == pose->y)
                 {
@@ -479,16 +452,18 @@ public:
                 }
                 else
                 {
-                    if (current == CELL_UNKNOWN)
+                    if (current == CellState::CELL_UNKNOWN)
                         color = TFT_GREY;
-                    else if (current == CELL_FREE)
+                    else if (current == CellState::CELL_FREE)
                         color = TFT_DARKGREEN;
-                    else if (current == CELL_OCCUPIED)
+                    else if (current == CellState::CELL_OCCUPIED)
                         color = TFT_RED;
-                    else if (current == CELL_PERHAPS_OCCUPIED)
+                    else if (current == CellState::CELL_PERHAPS_OCCUPIED)
                         color = TFT_YELLOW;
                 }
                 display.fillRect(mapOffsetX + x * mapCellSize, mapOffsetY + y * mapCellSize, mapCellSize, mapCellSize, color);
+                current |= CellState::CELL_NOT_CHANGED; // Set the not changed bit after drawing
+                map->setCellState(x, y, current); // Update the map's cell state with the new value (including the not changed bit)
             }
         }
         if (mapCellSize >= 3)
@@ -699,7 +674,6 @@ private:
     uint16_t mapCellSize;
     uint16_t mapOffsetX;
     uint16_t mapOffsetY;
-    //CellState oldGrid[MAP_WIDTH][MAP_HEIGHT];
 
     uint16_t touchX = 0, touchY = 0;
     bool lastTouchState = false;
@@ -709,7 +683,7 @@ private:
     int32_t carOffsetY = 0;
     bool initialized = false;
     BotPose *pose = nullptr;
-    const TheMap *map = nullptr;
+    TheMap *map = nullptr;
 };
 
 #endif // THE_SCREEN_H

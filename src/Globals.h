@@ -57,14 +57,39 @@ extern AllSensors allSensors;
 // 82944 bytes for the occupancy grid
 
 // The map is represented as a 2D grid of cells, where each cell can be in one of three states:
-enum CellState
+enum CellState : uint8_t
 {
-    CELL_REDRAW = -2, // Special state to indicate that a cell needs to be redrawn on the screen (used for optimization)
-    CELL_UNKNOWN = -1,
-    CELL_FREE = 0,
-    CELL_OCCUPIED = 1,
-    CELL_PERHAPS_OCCUPIED = 2
+    // CELL_REDRAW = -2, // Special state to indicate that a cell needs to be redrawn on the screen (used for optimization)
+    CELL_UNKNOWN = 0,
+    CELL_FREE = 1 << 0,
+    CELL_OCCUPIED = 1 << 1,
+    CELL_PERHAPS_OCCUPIED = 1 << 2,
+    CELL_NOT_CHANGED = 1 << 3 // Special flag to indicate that the cell state has not changed since the last time it was drawn on the screen (used for optimization)
 };
+
+inline CellState operator|(CellState lhs, CellState rhs) {
+    using T = std::underlying_type_t<CellState>;
+    return static_cast<CellState>(
+        static_cast<T>(lhs) | static_cast<T>(rhs)
+    );
+}
+
+inline CellState operator&(CellState lhs, CellState rhs) {
+    using T = std::underlying_type_t<CellState>;
+    return static_cast<CellState>(
+        static_cast<T>(lhs) & static_cast<T>(rhs)
+    );
+}
+
+inline CellState& operator|=(CellState& lhs, CellState rhs) {
+    lhs = lhs | rhs;
+    return lhs;
+}
+
+inline bool cellHasFlag(CellState value, CellState flag) {
+    using T = std::underlying_type_t<CellState>;
+    return (static_cast<T>(value) & static_cast<T>(flag)) != 0;
+}
 
 #define CELL_DISTANCE_THRESHOLD 100 // cm, if a reading is above this, we mark the cell as "perhaps occupied" instead of "occupied"
 

@@ -45,7 +45,7 @@ public:
         return CELL_UNKNOWN; // Out of bounds
     }
 
-    void updateCell(int x, int y, CellState state)
+    void setCellState(int x, int y, CellState state)
     {
         if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT)
         {
@@ -86,11 +86,11 @@ public:
             markRayFree(pose->x, pose->y, cellX, cellY);
             if (distance > CELL_DISTANCE_THRESHOLD)
             {
-                updateCell(cellX, cellY, CELL_PERHAPS_OCCUPIED);
+                setCellState(cellX, cellY, CellState::CELL_PERHAPS_OCCUPIED);
             }
             else
             {
-                updateCell(cellX, cellY, CELL_OCCUPIED);
+                setCellState(cellX, cellY, CellState::CELL_OCCUPIED);
             }
         }
     }
@@ -119,13 +119,13 @@ public:
                     continue;
                 }
                 CellState state = getCellState(x, y);
-                if (state == CELL_UNKNOWN)
+                if (state == CellState::CELL_UNKNOWN)
                     row += "?";
-                else if (state == CELL_FREE)
+                else if (state == CellState::CELL_FREE)
                     row += ".";
-                else if (state == CELL_OCCUPIED)
+                else if (state == CellState::CELL_OCCUPIED)
                     row += "#";
-                else if (state == CELL_PERHAPS_OCCUPIED)
+                else if (state == CellState::CELL_PERHAPS_OCCUPIED)
                     row += "o";
             }
             myTrace.println(row);
@@ -167,7 +167,7 @@ private:
                 break;
             }
 
-            updateCell(x0, y0, CELL_FREE);
+            setCellState(x0, y0, CellState::CELL_FREE);
 
             int e2 = 2 * err;
             if (e2 >= dy)
