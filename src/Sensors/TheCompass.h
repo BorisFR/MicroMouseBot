@@ -61,7 +61,7 @@ public:
 
         isInitialized = lis3mdlInitialized && lsm6dsInitialized; // Set to true if initialization is successful
         currentHeading = 0.0f;                                   // Initialize heading to a default value
-        changeDetected = true;
+        // changeDetected = true;
         if (theCallbackValueChange)
             theCallbackValueChange(currentHeading);
 
@@ -297,7 +297,7 @@ public:
         //  /* Get new normalized sensor events */
         lsm6ds.getEvent(&accel, &gyro, &temp);
         lis3mdl.getEvent(&mag);
-        if(isCalibrationLoaded())
+        if (isCalibrationLoaded())
         {
             calibration.calibrate(mag);
             calibration.calibrate(accel);
@@ -308,8 +308,8 @@ public:
         float gz = gyro.gyro.z * SENSORS_RADS_TO_DPS;
         filter.update(gx, gy, gz, accel.acceleration.x, accel.acceleration.y, accel.acceleration.z, mag.magnetic.x, mag.magnetic.y, mag.magnetic.z);
 
-        //float roll = filter.getRoll();
-        //float pitch = filter.getPitch();
+        // float roll = filter.getRoll();
+        // float pitch = filter.getPitch();
         float heading = filter.getYaw();
         // float qw, qx, qy, qz;
         // filter.getQuaternion(&qw, &qx, &qy, &qz);
@@ -320,7 +320,7 @@ public:
         if (fabsf(heading - currentHeading) > HEADING_EPSILON_DEG) // Avoid noisy updates
         {
             currentHeading = heading;
-            changeDetected = true;
+            // changeDetected = true;
             if (theCallbackValueChange)
                 theCallbackValueChange(heading);
         }
@@ -343,7 +343,7 @@ public:
         return currentHeading; // Return the current heading value
     }
 
-    bool isChangeDetected()
+    /*bool isChangeDetected()
     {
         if (changeDetected)
         {
@@ -351,7 +351,7 @@ public:
             return true;
         }
         return false;
-    }
+    }*/
 
     void eventError(EVENT_ERROR callback)
     {
@@ -374,10 +374,10 @@ public:
     }
 
 private:
-    static constexpr float HEADING_EPSILON_DEG = 0.2f;
+    static constexpr float HEADING_EPSILON_DEG = 0.1f;
     bool isInitialized = false;
     EVENT_ERROR theCallbackError;
-    bool changeDetected = false;
+    // bool changeDetected = false;
     float currentHeading = 0.0f;
     EVENT_CHANGE_WITH_FLOAT theCallbackValueChange;
 

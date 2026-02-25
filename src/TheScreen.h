@@ -87,8 +87,24 @@ public:
         uint16_t mapCellWidth = currentWidth() / MAP_WIDTH;
         uint16_t mapCellHeight = currentHeight() / MAP_HEIGHT;
         mapCellSize = min(mapCellWidth, mapCellHeight);
+        if(mapCellSize == 0)
+        {
+            myTrace.println("Error: Map cell size calculated as 0, check screen dimensions and map size.");
+            mapCellSize = 1; // Fallback to a minimum size to avoid division by zero
+        }
         mapOffsetX = (currentWidth() - (mapCellSize * MAP_WIDTH)) / 2;
+        if(mapOffsetX >= currentWidth())
+        {
+            myTrace.println("Error: Map offset X calculated as negative, check screen dimensions and map size.");
+            mapOffsetX = 0; // Fallback to 0 to avoid drawing issues
+        }
         mapOffsetY = (currentHeight() - (mapCellSize * MAP_HEIGHT)) / 2;
+        if(mapOffsetY >= currentHeight())
+        {
+            myTrace.println("Error: Map offset Y calculated as negative, check screen dimensions and map size.");
+            mapOffsetY = 0; // Fallback to 0 to avoid drawing issues
+        }
+        myTrace.println("Map cell size: " + String(mapCellSize) + " pixels, map offset X: " + String(mapOffsetX) + " pixels, map offset Y: " + String(mapOffsetY) + " pixels");
         forceMapRedraw();
     }
 
@@ -432,7 +448,7 @@ public:
         {
             for (int y = 0; y < MAP_HEIGHT; y++)
             {
-                oldGrid[x][y] = CELL_REDRAW; // Force redraw of all cells on the map screen
+                //oldGrid[x][y] = CELL_REDRAW; // Force redraw of all cells on the map screen
             }
         }
     }
@@ -450,11 +466,12 @@ public:
             for (int y = 0; y < MAP_HEIGHT; y++)
             {
                 CellState current = map->getCellState(x, y);
-                if (current == oldGrid[x][y])
+                /*if (current == oldGrid[x][y])
                 {
                     continue; // No change, skip drawing
                 }
                 oldGrid[x][y] = current; // Update oldGrid with new value
+                */
                 uint16_t color;
                 if (pose && x == pose->x && y == pose->y)
                 {
@@ -682,7 +699,7 @@ private:
     uint16_t mapCellSize;
     uint16_t mapOffsetX;
     uint16_t mapOffsetY;
-    CellState oldGrid[MAP_WIDTH][MAP_HEIGHT];
+    //CellState oldGrid[MAP_WIDTH][MAP_HEIGHT];
 
     uint16_t touchX = 0, touchY = 0;
     bool lastTouchState = false;

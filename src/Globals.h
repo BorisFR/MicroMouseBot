@@ -46,11 +46,11 @@ extern MyTrace myTrace;
 extern AllSensors allSensors;
 
 // unit is centimeter
-#define CELL_SIZE 18 // Each cell in the map represents an 18x18 cm area in the real world. This means our 288x288 cm map will be divided into a 16x16 grid of cells.
+#define CELL_SIZE 18 // in centimeter. Each cell in the map represents an 18x18 cm area in the real world. This means our 288x288 cm map will be divided into a 16x16 grid of cells.
 // /!\  taille de la map
 // c'est ce qui occupe de la mémoire !
-#define CELLS_BY_WIDTH 10
-#define CELLS_BY_HEIGHT 5
+#define CELLS_BY_WIDTH 16
+#define CELLS_BY_HEIGHT 16
 #define MAP_WIDTH (CELL_SIZE * CELLS_BY_WIDTH)   // 288 cm
 #define MAP_HEIGHT (CELL_SIZE * CELLS_BY_HEIGHT) // 288 cm
 // 288*288 cm map, divided into 16*16 cells of 18*18 cm each
