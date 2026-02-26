@@ -512,6 +512,106 @@ public:
         display.fillTriangle(downX + 10, downY + 10, downX + 30, downY + 10, downX + 20, downY + 30, arrowColor);
     }
 
+    /// @brief Draws an indicator on the nearest border when the robot is off-screen.
+    void drawRobotOffscreenIndicator()
+    {
+        if (!pose)
+            return;
+
+        int16_t viewportWidthPixels = currentWidth();
+        int16_t viewportHeightPixels = currentHeight() - 2 * VIEWPORT_MARGIN;
+        int16_t centerX = currentWidth() / 2;
+        int16_t centerY = viewportHeightPixels / 2 + VIEWPORT_MARGIN;
+
+        int16_t robotScreenX = mapOffsetX + (static_cast<int16_t>(pose->x) - viewportCenterX) * mapCellSize / CELL_SIZE + viewportWidthPixels / 2;
+        int16_t robotScreenY = mapOffsetY + (static_cast<int16_t>(pose->y) - viewportCenterY) * mapCellSize / CELL_SIZE + viewportHeightPixels / 2;
+
+        bool robotOnScreen = (robotScreenX >= 0 && robotScreenX < currentWidth() &&
+                              robotScreenY >= VIEWPORT_MARGIN && robotScreenY < currentHeight() - VIEWPORT_MARGIN);
+        if (robotOnScreen)
+            return;
+
+        float dx = static_cast<float>(pose->x) - static_cast<float>(viewportCenterX);
+        float dy = static_cast<float>(pose->y) - static_cast<float>(viewportCenterY);
+        float distanceCm = sqrtf(dx * dx + dy * dy);
+        float len = sqrtf(dx * dx + dy * dy);
+        if (len < 0.1f)
+            return;
+        float ux = dx / len;
+        float uy = dy / len;
+
+        int16_t xMin = 2;
+        int16_t xMax = currentWidth() - 3;
+        int16_t yMin = VIEWPORT_MARGIN + 2;
+        int16_t yMax = currentHeight() - VIEWPORT_MARGIN - 3;
+
+        float tMin = 1e9f;
+        float ix = static_cast<float>(centerX);
+        float iy = static_cast<float>(centerY);
+
+        if (fabsf(ux) > 0.0001f)
+        {
+            float t = (xMin - centerX) / ux;
+            float y = centerY + t * uy;
+            if (t > 0.0f && y >= yMin && y <= yMax && t < tMin)
+            {
+                tMin = t;
+                ix = static_cast<float>(xMin);
+                iy = y;
+            }
+            t = (xMax - centerX) / ux;
+            y = centerY + t * uy;
+            if (t > 0.0f && y >= yMin && y <= yMax && t < tMin)
+            {
+                tMin = t;
+                ix = static_cast<float>(xMax);
+                iy = y;
+            }
+        }
+
+        if (fabsf(uy) > 0.0001f)
+        {
+            float t = (yMin - centerY) / uy;
+            float x = centerX + t * ux;
+            if (t > 0.0f && x >= xMin && x <= xMax && t < tMin)
+            {
+                tMin = t;
+                ix = x;
+                iy = static_cast<float>(yMin);
+            }
+            t = (yMax - centerY) / uy;
+            x = centerX + t * ux;
+            if (t > 0.0f && x >= xMin && x <= xMax && t < tMin)
+            {
+                tMin = t;
+                ix = x;
+                iy = static_cast<float>(yMax);
+            }
+        }
+
+        const int16_t arrowLen = 12;
+        const int16_t arrowHalf = 6;
+        float baseX = ix - ux * arrowLen;
+        float baseY = iy - uy * arrowLen;
+        float px = -uy;
+        float py = ux;
+
+        int16_t x1 = static_cast<int16_t>(ix);
+        int16_t y1 = static_cast<int16_t>(iy);
+        int16_t x2 = static_cast<int16_t>(baseX + px * arrowHalf);
+        int16_t y2 = static_cast<int16_t>(baseY + py * arrowHalf);
+        int16_t x3 = static_cast<int16_t>(baseX - px * arrowHalf);
+        int16_t y3 = static_cast<int16_t>(baseY - py * arrowHalf);
+
+        display.fillTriangle(x1, y1, x2, y2, x3, y3, orange());
+
+        String label = String(static_cast<uint16_t>(distanceCm)) + " cm";
+        int16_t textX = static_cast<int16_t>(baseX - ux * 10);
+        int16_t textY = static_cast<int16_t>(baseY - uy * 10);
+        display.setTextColor(TFT_WHITE, TFT_BLACK);
+        display.drawString(label, textX - 12, textY - 6, 1);
+    }
+
     /// @brief Checks if touch coordinates are within a button area
     /// @return 0=none, 1=left, 2=right, 3=up, 4=down
     uint8_t getTouchedScrollButton(uint16_t x, uint16_t y)
@@ -635,6 +735,8 @@ public:
         
         // Draw scroll control buttons
         drawScrollButtons();
+        // Draw off-screen robot indicator if needed
+        drawRobotOffscreenIndicator();
     }
 
     // ************************************************************************
