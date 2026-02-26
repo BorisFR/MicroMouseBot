@@ -71,3 +71,43 @@ Calibrations found:
 	Magnetic Field Magnitude: 45.04
 	Gyro Zero Rate Offset: 0.00, 0.00, 0.00
 	Accel Zero G Offset: 0.00, 0.00, 0.00
+
+
+
+Accelerometer range set to: +-2G
+Accelerometer data rate set to: 104 Hz
+Gyro range set to: 250 degrees/s
+Gyro data rate set to: 104 Hz
+Magnetometer data rate set to: 1000 Hz
+Range set to: +-4 gauss
+Magnetometer performance mode set to: Medium
+Magnetometer operation mode set to: Continuous
+------------------------------------
+Sensor:       LSM6DS_A
+Type:         Acceleration (m/s2)
+Driver Ver:   1
+Unique ID:    1745
+Min Value:    -156.91
+Max Value:    156.91
+Resolution:   0.06
+------------------------------------
+
+------------------------------------
+Sensor:       LSM6DS_G
+Type:         Gyroscopic (rad/s)
+Driver Ver:   1
+Unique ID:    1746
+Min Value:    -34.91
+Max Value:    34.91
+Resolution:   0.00
+------------------------------------
+
+------------------------------------
+Sensor:       LIS3MDL
+Type:         Magnetic (uT)
+Driver Ver:   1
+Unique ID:    0
+Min Value:    -1600.00
+Max Value:    1600.00
+Resolution:   0.01
+------------------------------------

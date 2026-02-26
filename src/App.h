@@ -49,7 +49,6 @@ public:
     {
         boardLed.loop();
         pollSensorFrame();
-        tickMap();
         tickUI();
         theMap.loop();
         theCar.loop();
@@ -57,9 +56,8 @@ public:
     }
 
 private:
-    static constexpr uint32_t SENSOR_INTERVAL_MS = 50;
-    static constexpr uint32_t MAP_INTERVAL_MS = 50;
-    static constexpr uint32_t UI_INTERVAL_MS = 100;
+    static constexpr uint32_t SENSOR_INTERVAL_MS = 10; // 100 Hz sensor update rate
+    static constexpr uint32_t UI_INTERVAL_MS = 500;
 
     BoardLed &boardLed;
     TheScreen &theScreen;
@@ -68,7 +66,6 @@ private:
     TheCar &theCar;
     BotPose &pose;
 
-    elapsedMillis mapTimer;
     elapsedMillis uiTimer;
 
     QueueHandle_t sensorQueue = nullptr;
@@ -87,7 +84,7 @@ private:
         if (sensorQueue)
             return;
         sensorQueue = xQueueCreate(1, sizeof(AllSensors::SensorFrame));
-        xTaskCreatePinnedToCore(sensorTaskEntry, "SensorTask", 4096, this, 1, &sensorTaskHandle, 1);
+        xTaskCreatePinnedToCore(sensorTaskEntry, "SensorTask", 4096, this, 2, &sensorTaskHandle, 1); // Priority 2 (higher than default), Run on core 1 to avoid conflicts with the main loop on core 0
     }
 
     void sensorTask()
@@ -111,18 +108,15 @@ private:
         {
             lastFrame = frame;
             hasFrame = true;
-            if (frame.headingValid)
-            {
-                pose.theta = frame.heading;
-            }
+            pose.theta = frame.heading;
         }
     }
 
-    void tickMap()
+    void tickUI()
     {
-        if (mapTimer < MAP_INTERVAL_MS)
+        if (uiTimer < UI_INTERVAL_MS)
             return;
-        mapTimer = 0;
+        uiTimer = 0;
         if (!hasFrame)
             return;
 
@@ -139,25 +133,15 @@ private:
 
         if (theMap.hasChanged())
             theScreen.showMap();
-    }
-
-    void tickUI()
-    {
-        if (uiTimer < UI_INTERVAL_MS)
-            return;
-        uiTimer = 0;
-        if (!hasFrame)
-            return;
-
+            
         for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
             theScreen.showVL53L0Xstate(i, allSensors.isSensorInitialized(i), allSensors.isSensorErrorDetected(i), lastFrame.distances[i]);
 
-        if (lastFrame.headingValid) {
-            theScreen.showGyro(allSensors.isGyroReady(), allSensors.isGyroErrorDetected(), allSensors.getGyroHeading());
-            theScreen.showMagnetometer(allSensors.isMagnetometerReady(), allSensors.isMagnetometerErrorDetected(), allSensors.getMagnetometerHeading());
-            theScreen.showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), allSensors.isIMUCalibrated(), lastFrame.heading);
-        }
+        theScreen.showGyro(allSensors.isGyroReady(), allSensors.isGyroErrorDetected(), allSensors.getGyroHeading());
+        theScreen.showMagnetometer(allSensors.isMagnetometerReady(), allSensors.isMagnetometerErrorDetected(), allSensors.getMagnetometerHeading());
+        theScreen.showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), allSensors.isIMUCalibrated(), lastFrame.heading);
+
     }
 };
 
-#endif
+#endif // APP_H

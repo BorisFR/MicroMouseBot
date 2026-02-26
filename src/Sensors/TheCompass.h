@@ -6,10 +6,11 @@
 // LSM6DS3TR-C  + LIS3MDL
 #include <Adafruit_LSM6DS3TRC.h>
 #include <Adafruit_LIS3MDL.h>
-#include <Adafruit_Sensor_Calibration_EEPROM.h>
-#include <Adafruit_AHRS_NXPFusion.h>
+#include <Adafruit_Sensor_Calibration.h>
+#include <Adafruit_AHRS.h>
 #include <math.h>
-#define FILTER_UPDATE_RATE_HZ 100
+// 100 or 104 Hz seems to be the sweet spot for the best performance/accuracy balance for the NXP sensor fusion filter on the LSM6DS3TR-C + LIS3MDL combo, which is what TheCompass is using. Higher rates can cause instability in the filter and worse accuracy, while lower rates can cause more lag and less responsiveness. The exact optimal rate may vary based on your specific use case and environment, so feel free to experiment with different rates around this range to see what works best for your application.
+#define FILTER_UPDATE_RATE_HZ 104
 
 class TheCompass
 {
@@ -21,18 +22,17 @@ public:
     void setup()
     {
         myTrace.println("🧭 setup");
-        // Initialize compass hardware here
         if (!calibration.begin())
         {
-            myTrace.println("Failed to initialize calibration helper");
+            myTrace.println("🧭 Failed to initialize calibration helper");
         }
         else if (!calibration.loadCalibration())
         {
-            myTrace.println("No calibration loaded/found");
+            myTrace.println("🧭 No calibration loaded/found");
         }
         else
         {
-            myTrace.println("Calibration loaded successfully");
+            myTrace.println("🧭 Calibration loaded successfully");
             calibrationLoaded = true;
         }
     }
@@ -61,13 +61,12 @@ public:
 
         isInitialized = lis3mdlInitialized && lsm6dsInitialized; // Set to true if initialization is successful
         currentHeading = 0.0f;                                   // Initialize heading to a default value
-        // changeDetected = true;
         if (theCallbackValueChange)
             theCallbackValueChange(currentHeading);
 
         if (isInitialized)
         {
-            // lsm6ds.setAccelRange(LSM6DS_ACCEL_RANGE_2_G);
+            lsm6ds.setAccelRange(LSM6DS_ACCEL_RANGE_2_G);
             myTrace.print("Accelerometer range set to: ");
             switch (lsm6ds.getAccelRange())
             {
@@ -86,6 +85,7 @@ public:
             }
 
             // lsm6ds.setAccelDataRate(LSM6DS_RATE_12_5_HZ);
+            lsm6ds.setAccelDataRate(LSM6DS_RATE_104_HZ);
             myTrace.print("Accelerometer data rate set to: ");
             switch (lsm6ds.getAccelDataRate())
             {
@@ -124,7 +124,7 @@ public:
                 break;
             }
 
-            // lsm6ds.setGyroRange(LSM6DS_GYRO_RANGE_250_DPS );
+            lsm6ds.setGyroRange(LSM6DS_GYRO_RANGE_250_DPS);
             myTrace.print("Gyro range set to: ");
             switch (lsm6ds.getGyroRange())
             {
@@ -148,6 +148,7 @@ public:
                 break;
             }
             // lsm6ds.setGyroDataRate(LSM6DS_RATE_12_5_HZ);
+            lsm6ds.setGyroDataRate(LSM6DS_RATE_104_HZ);
             myTrace.print("Gyro data rate set to: ");
             switch (lsm6ds.getGyroDataRate())
             {
@@ -186,7 +187,8 @@ public:
                 break;
             }
 
-            lis3mdl.setDataRate(LIS3MDL_DATARATE_155_HZ);
+            // lis3mdl.setDataRate(LIS3MDL_DATARATE_155_HZ);
+            lis3mdl.setDataRate(LIS3MDL_DATARATE_1000_HZ);
             // You can check the datarate by looking at the frequency of the DRDY pin
             myTrace.print("Magnetometer data rate set to: ");
             switch (lis3mdl.getDataRate())
@@ -247,7 +249,7 @@ public:
                 break;
             }
 
-            lis3mdl.setPerformanceMode(LIS3MDL_MEDIUMMODE);
+            lis3mdl.setPerformanceMode(LIS3MDL_ULTRAHIGHMODE);
             myTrace.print("Magnetometer performance mode set to: ");
             switch (lis3mdl.getPerformanceMode())
             {
@@ -281,8 +283,14 @@ public:
                 break;
             }
 
+            accelerometer = lsm6ds.getAccelerometerSensor();
+            gyroscope = lsm6ds.getGyroSensor();
+            magnetometer = &lis3mdl;
+            accelerometer->printSensorDetails();
+            gyroscope->printSensorDetails();
+            magnetometer->printSensorDetails();
+
             filter.begin(FILTER_UPDATE_RATE_HZ);
-            lastFilterUpdate = millis();
         }
     }
 
@@ -290,37 +298,38 @@ public:
     {
         if (!isInitialized)
             return; // Skip reading if not initialized
-        if ((millis() - lastFilterUpdate) < (1000 / FILTER_UPDATE_RATE_HZ))
-            return; // Limit filter update rate
-        lastFilterUpdate = millis();
-        sensors_event_t accel, gyro, mag, temp;
-        //  /* Get new normalized sensor events */
-        lsm6ds.getEvent(&accel, &gyro, &temp);
-        lis3mdl.getEvent(&mag);
+        sensors_event_t accel, gyro, mag; 
+        accelerometer->getEvent(&accel);
+        gyroscope->getEvent(&gyro);
+        magnetometer->getEvent(&mag);
         if (isCalibrationLoaded())
         {
             calibration.calibrate(mag);
             calibration.calibrate(accel);
             calibration.calibrate(gyro);
         }
+        // Gyroscope needs to be converted from Rad/s to Degree/s
+        // the rest are not unit-important
         float gx = gyro.gyro.x * SENSORS_RADS_TO_DPS;
         float gy = gyro.gyro.y * SENSORS_RADS_TO_DPS;
         float gz = gyro.gyro.z * SENSORS_RADS_TO_DPS;
-        filter.update(gx, gy, gz, accel.acceleration.x, accel.acceleration.y, accel.acceleration.z, mag.magnetic.x, mag.magnetic.y, mag.magnetic.z);
-
-        // float roll = filter.getRoll();
-        // float pitch = filter.getPitch();
+        uint32_t now = micros();
+        float deltaTime = (now - lastUpdateMicros) / 1000000.0f;
+        lastUpdateMicros = now;
+        filter.update(gx, gy, gz, 
+            accel.acceleration.x, accel.acceleration.y, accel.acceleration.z, 
+            mag.magnetic.x, mag.magnetic.y, mag.magnetic.z); //, deltaTime);
+        float roll = filter.getRoll();
+        float pitch = filter.getPitch();
         float heading = filter.getYaw();
         // float qw, qx, qy, qz;
         // filter.getQuaternion(&qw, &qx, &qy, &qz);
-        /*float heading = atan2f(mag.magnetic.y, mag.magnetic.x);
-        if (heading < 0)
-            heading += 2 * PI;
-        float newValue = heading;*/
+
         if (fabsf(heading - currentHeading) > HEADING_EPSILON_DEG) // Avoid noisy updates
         {
             currentHeading = heading;
-            // changeDetected = true;
+            currentRoll = roll;
+            currentPitch = pitch;
             if (theCallbackValueChange)
                 theCallbackValueChange(heading);
         }
@@ -336,22 +345,22 @@ public:
         return isInitialized;
     }
 
+    float getRoll()
+    {
+        return currentRoll;
+    }
+
+    float getPitch()
+    {
+        return currentPitch;
+    }
+
     float getHeading()
     {
         // Return the current heading in degrees
         // You can use a magnetometer sensor to get the heading
         return currentHeading; // Return the current heading value
     }
-
-    /*bool isChangeDetected()
-    {
-        if (changeDetected)
-        {
-            changeDetected = false; // Reset the flag after reporting the change
-            return true;
-        }
-        return false;
-    }*/
 
     void eventError(EVENT_ERROR callback)
     {
@@ -374,23 +383,25 @@ public:
     }
 
 private:
-    static constexpr float HEADING_EPSILON_DEG = 0.1f;
+    static constexpr float HEADING_EPSILON_DEG = 0.2f;
     bool isInitialized = false;
     EVENT_ERROR theCallbackError;
-    // bool changeDetected = false;
     float currentHeading = 0.0f;
+    float currentRoll = 0.0f;
+    float currentPitch = 0.0f;
     EVENT_CHANGE_WITH_FLOAT theCallbackValueChange;
 
     Adafruit_LIS3MDL lis3mdl;
     Adafruit_LSM6DS3TRC lsm6ds;
     bool lis3mdlInitialized = false;
     bool lsm6dsInitialized = false;
+    Adafruit_Sensor *accelerometer, *gyroscope, *magnetometer;
     Adafruit_Sensor_Calibration_EEPROM calibration;
     bool calibrationLoaded = false;
     Adafruit_NXPSensorFusion filter; // slowest
-    // Adafruit_Madgwick filter;  // faster than NXP
+    // Adafruit_Madgwick filter; // faster than NXP
     // Adafruit_Mahony filter;  // fastest/smalleset
-    unsigned long lastFilterUpdate = 0;
+    uint32_t lastUpdateMicros = 0;
 };
 
 #endif // THE_COMPASS_H

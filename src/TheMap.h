@@ -22,6 +22,18 @@ public:
     void setup()
     {
         myTrace.println("🗺️ setup");
+        if(grid.isValid())
+        {
+            myTrace.println("🗺️ PSRAM grid allocated successfully");
+            String info = "🗺️ Grid dimensions: " + String(grid.numRows()) + " x " + String(grid.numCols());
+            myTrace.println(info);
+            info = "🗺️ Grid memory usage: " + String(grid.allocationSize() / 1024) + " KB";
+            myTrace.println(info);
+        }
+        else
+        {
+            myTrace.println("🗺️ Failed to allocate PSRAM grid");
+        }
         initializeGrid();
     }
 

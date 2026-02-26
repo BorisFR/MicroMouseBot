@@ -18,7 +18,6 @@ public:
     {
         uint16_t distances[VL53L0X_COUNT];
         float heading;
-        bool headingValid;
     };
 
     AllSensors() {}
@@ -77,7 +76,6 @@ public:
         theCompass.setup();
         theCompass.eventChangeValue([this](float value)
                                     { lastHeading = value;
-                                    changeIMU = true;
                                     frameChanged = true;
                                     if (theCallbackIMU)
                                         theCallbackIMU(value); });
@@ -137,8 +135,6 @@ public:
             frame.distances[i] = sensorVL53L0X[i].getLastDistance();
         }
         frame.heading = lastHeading;
-        frame.headingValid = isIMUinitializedSuccessfully();
-        changeIMU = false;
         return true;
     }
 
@@ -193,7 +189,7 @@ public:
     }
 
     float getGyroHeading() {
-        return theCompass.getHeading(); // For simplicity, we are using the same heading value for both gyro and magnetometer in this example. In a real implementation, you would get the gyro heading from the appropriate sensor reading.
+        return theCompass.getPitch(); // For simplicity, we are using the same heading value for both gyro and magnetometer in this example. In a real implementation, you would get the gyro heading from the appropriate sensor reading.
     }
 
     bool isMagnetometerReady() {
@@ -206,23 +202,13 @@ public:
     }
 
     float getMagnetometerHeading() {
-        return theCompass.getHeading(); // For simplicity, we are using the same heading value for both gyro and magnetometer in this example. In a real implementation, you would get the magnetometer heading from the appropriate sensor reading.
+        return theCompass.getRoll(); // For simplicity, we are using the same heading value for both gyro and magnetometer in this example. In a real implementation, you would get the magnetometer heading from the appropriate sensor reading.
     }
 
     bool isIMUErrorDetected()
     {
         return false; // Placeholder, implement actual error detection logic for the IMU if available. For now, we are not simulating IMU errors, so we return false to indicate no error.
         // return theCompass.isErrorDetected(); // Using error detection as a proxy for error state for simplicity
-    }
-
-    bool isIMUChangeDetected()
-    {
-        if (changeIMU)
-        {
-            changeIMU = false;
-            return true;
-        }
-        return false;
     }
 
     float getHeading()
@@ -243,7 +229,6 @@ private:
     EVENT_CHANGE theCallbackHub;
     EVENT_CHANGE_WITH_UINT8_UINT16 theCallbackSensorWithIndexAndValue;
     TheCompass theCompass;
-    bool changeIMU = false;
     float lastHeading = 0.0f;
     EVENT_CHANGE_WITH_FLOAT theCallbackIMU;
 

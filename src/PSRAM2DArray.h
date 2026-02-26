@@ -71,6 +71,9 @@ public:
     // Check if allocation succeeded
     bool isValid() const { return data != nullptr; }
 
+    // Get total memory usage in bytes
+    unsigned long allocationSize() const { return rows * cols * sizeof(T); }
+
 private:
     T *data;     // Pointer to PSRAM memory
     size_t rows; // Number of rows
