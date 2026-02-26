@@ -59,6 +59,10 @@ enum ScreenState
 #define CAR_SENSOR_TOP_RIGHT_Y_OFFSET (CAR_SENSOR_WIDTH / 2)               // cm, distance from the center of the car to the top right edge where the top right sensor is located
 #define CAR_SENSOR_TOP_RIGHT_ROTATE_OFFSET (45.0f)                        // degrees, rotation offset of the top right sensor relative to the car's forward direction
 
+// Viewport constants for map scrolling
+#define MAP_CELL_PIXEL_SIZE 18                                             // pixels, size of each map cell on the screen
+#define VIEWPORT_MARGIN 14                                                 // pixels, top and bottom margins for header/footer
+
 class TheScreen
 {
 public:
@@ -84,27 +88,17 @@ public:
         carOffsetX = (currentWidth() - CAR_WIDTH * CAR_SCALE_CM_TO_SCREEN) / 2;
         carOffsetY = (currentHeight() - CAR_LENGTH * CAR_SCALE_CM_TO_SCREEN) / 2;
         initialized = true;
-        uint16_t mapCellWidth = currentWidth() / MAP_WIDTH;
-        uint16_t mapCellHeight = currentHeight() / MAP_HEIGHT;
-        mapCellSize = min(mapCellWidth, mapCellHeight);
-        if(mapCellSize == 0)
-        {
-            myTrace.println("Error: Map cell size calculated as 0, check screen dimensions and map size.");
-            mapCellSize = 1; // Fallback to a minimum size to avoid division by zero
-        }
-        mapOffsetX = (currentWidth() - (mapCellSize * MAP_WIDTH)) / 2;
-        if(mapOffsetX >= currentWidth())
-        {
-            myTrace.println("Error: Map offset X calculated as negative, check screen dimensions and map size.");
-            mapOffsetX = 0; // Fallback to 0 to avoid drawing issues
-        }
-        mapOffsetY = (currentHeight() - (mapCellSize * MAP_HEIGHT)) / 2;
-        if(mapOffsetY >= currentHeight())
-        {
-            myTrace.println("Error: Map offset Y calculated as negative, check screen dimensions and map size.");
-            mapOffsetY = 0; // Fallback to 0 to avoid drawing issues
-        }
-        myTrace.println("Map cell size: " + String(mapCellSize) + " pixels, map offset X: " + String(mapOffsetX) + " pixels, map offset Y: " + String(mapOffsetY) + " pixels");
+        
+        // Initialize viewport for map scrolling
+        mapCellSize = MAP_CELL_PIXEL_SIZE;
+        viewportLocked = true; // Start with auto-centering on robot
+        viewportCenterX = MAP_WIDTH / 2;  // Start at center of map (in cm)
+        viewportCenterY = MAP_HEIGHT / 2;
+        mapOffsetX = 0;
+        mapOffsetY = VIEWPORT_MARGIN;
+        
+        myTrace.println("Map cell size: " + String(mapCellSize) + " pixels, viewport initialized at center ("
+            + String(viewportCenterX) + ", " + String(viewportCenterY) + " cm)");
         forceMapRedraw();
     }
 
@@ -413,15 +407,74 @@ public:
 
     void forceMapRedraw()
     {
-        for (int x = 0; x < MAP_WIDTH; x++)
+        for (int x = 0; x < CELLS_BY_WIDTH; x++)
         {
-            for (int y = 0; y < MAP_HEIGHT; y++)
+            for (int y = 0; y < CELLS_BY_HEIGHT; y++)
             {
-                CellState current = map->getCellState(x, y);
-                current |= CellState::CELL_NOT_CHANGED; // Force redraw of all cells on the map screen
-                map->setCellState(x, y, current);
+                CellState current = map->getCellState(x * CELL_SIZE, y * CELL_SIZE);
+                current = static_cast<CellState>(
+                    static_cast<uint8_t>(current) & ~static_cast<uint8_t>(CellState::CELL_NOT_CHANGED)
+                ); // Clear the not changed bit to force redraw
+                map->setCellState(x * CELL_SIZE, y * CELL_SIZE, current);
             }
         }
+    }
+
+    /// @brief Updates viewport position. If locked, centers on robot. Otherwise keeps manual position.
+    void updateViewport()
+    {
+        if (viewportLocked && pose)
+        {
+            // Auto-center on robot position
+            viewportCenterX = pose->x;
+            viewportCenterY = pose->y;
+        }
+        // Clamp viewport to map boundaries
+        int16_t halfViewportWidthCm = (currentWidth() * CELL_SIZE) / (2 * mapCellSize);
+        int16_t halfViewportHeightCm = ((currentHeight() - 2 * VIEWPORT_MARGIN) * CELL_SIZE) / (2 * mapCellSize);
+        
+        if (viewportCenterX < halfViewportWidthCm)
+            viewportCenterX = halfViewportWidthCm;
+        if (viewportCenterX > MAP_WIDTH - halfViewportWidthCm)
+            viewportCenterX = MAP_WIDTH - halfViewportWidthCm;
+        if (viewportCenterY < halfViewportHeightCm)
+            viewportCenterY = halfViewportHeightCm;
+        if (viewportCenterY > MAP_HEIGHT - halfViewportHeightCm)
+            viewportCenterY = MAP_HEIGHT - halfViewportHeightCm;
+    }
+
+    /// @brief Scrolls the viewport by a delta in centimeters. Unlocks viewport for manual control.
+    /// @param deltaX Delta in centimeters (horizontal)
+    /// @param deltaY Delta in centimeters (vertical)
+    void scrollViewport(int16_t deltaX, int16_t deltaY)
+    {
+        viewportLocked = false; // Unlock viewport when manually scrolling
+        viewportCenterX += deltaX;
+        viewportCenterY += deltaY;
+        updateViewport(); // Clamp to boundaries
+        forceMapRedraw(); // Force redraw after manual scroll
+    }
+
+    /// @brief Locks or unlocks viewport to robot position
+    /// @param locked true to auto-center on robot, false for manual control
+    void setViewportLocked(bool locked)
+    {
+        viewportLocked = locked;
+        if (locked)
+        {
+            forceMapRedraw(); // Force redraw when re-locking
+        }
+    }
+
+    /// @brief Returns whether viewport is locked to robot
+    bool isViewportLocked() const { return viewportLocked; }
+
+    /// @brief Centers viewport on robot position and locks it
+    void centerViewportOnRobot()
+    {
+        viewportLocked = true;
+        updateViewport();
+        forceMapRedraw();
     }
 
     void showMap()
@@ -430,23 +483,57 @@ public:
             return; // Only show map if we are in the MAP screen state
         if (!map)
             return;
-        // Display the map on the TFT screen in a simple way (for example, as a grid of colored squares)
-        // You can iterate through the occupancy grid and draw rectangles for each cell based on its state
-        for (int x = 0; x < MAP_WIDTH; x++)
+
+        // Update viewport position before drawing
+        updateViewport();
+
+        // Calculate visible cell range based on viewport
+        int16_t viewportWidthPixels = currentWidth();
+        int16_t viewportHeightPixels = currentHeight() - 2 * VIEWPORT_MARGIN;
+        
+        // Calculate how many cells fit on screen
+        int16_t visibleCellsX = (viewportWidthPixels / mapCellSize) + 1;
+        int16_t visibleCellsY = (viewportHeightPixels / mapCellSize) + 1;
+        
+        // Calculate cell coordinates of viewport center
+        int16_t centerCellX = viewportCenterX / CELL_SIZE;
+        int16_t centerCellY = viewportCenterY / CELL_SIZE;
+        
+        // Calculate visible cell range
+        int16_t startCellX = centerCellX - visibleCellsX / 2;
+        int16_t endCellX = centerCellX + visibleCellsX / 2 + 1;
+        int16_t startCellY = centerCellY - visibleCellsY / 2;
+        int16_t endCellY = centerCellY + visibleCellsY / 2 + 1;
+        
+        // Clamp to map boundaries
+        if (startCellX < 0) startCellX = 0;
+        if (endCellX > CELLS_BY_WIDTH) endCellX = CELLS_BY_WIDTH;
+        if (startCellY < 0) startCellY = 0;
+        if (endCellY > CELLS_BY_HEIGHT) endCellY = CELLS_BY_HEIGHT;
+
+        // Draw only visible cells
+        for (int16_t cellX = startCellX; cellX < endCellX; cellX++)
         {
-            for (int y = 0; y < MAP_HEIGHT; y++)
+            for (int16_t cellY = startCellY; cellY < endCellY; cellY++)
             {
-                CellState current = map->getCellState(x, y);
-                // test bit CELL_NOT_CHANGED
+                int16_t cellCmX = cellX * CELL_SIZE;
+                int16_t cellCmY = cellY * CELL_SIZE;
+                
+                CellState current = map->getCellState(cellCmX, cellCmY);
+                
+                // Check if cell needs redraw
                 if(cellHasFlag(current, CellState::CELL_NOT_CHANGED))
                 {
                     continue; // No change, skip drawing
                 }
+                
                 current = static_cast<CellState>(
                     static_cast<uint8_t>(current) & ~static_cast<uint8_t>(CellState::CELL_NOT_CHANGED)
-                ); // Clear the not changed bit for the next iteration
+                ); // Clear the not changed bit
+                
+                // Determine cell color
                 uint16_t color;
-                if (pose && x == pose->x && y == pose->y)
+                if (pose && abs(cellCmX - (int16_t)pose->x) < CELL_SIZE && abs(cellCmY - (int16_t)pose->y) < CELL_SIZE)
                 {
                     color = TFT_GREEN; // Robot's current position
                 }
@@ -460,33 +547,28 @@ public:
                         color = TFT_RED;
                     else if (current == CellState::CELL_PERHAPS_OCCUPIED)
                         color = TFT_YELLOW;
+                    else
+                        color = TFT_GREY; // Default
                 }
-                display.fillRect(mapOffsetX + x * mapCellSize, mapOffsetY + y * mapCellSize, mapCellSize, mapCellSize, color);
-                current |= CellState::CELL_NOT_CHANGED; // Set the not changed bit after drawing
-                map->setCellState(x, y, current); // Update the map's cell state with the new value (including the not changed bit)
+                
+                // Calculate screen position relative to viewport
+                int16_t screenX = mapOffsetX + (cellCmX - viewportCenterX) * mapCellSize / CELL_SIZE + viewportWidthPixels / 2;
+                int16_t screenY = mapOffsetY + (cellCmY - viewportCenterY) * mapCellSize / CELL_SIZE + viewportHeightPixels / 2;
+                
+                // Draw cell
+                display.fillRect(screenX, screenY, mapCellSize, mapCellSize, color);
+                
+                // Draw grid line
+                display.drawRect(screenX, screenY, mapCellSize, mapCellSize, TFT_BLACK);
+                
+                // Mark as drawn
+                current |= CellState::CELL_NOT_CHANGED;
+                map->setCellState(cellCmX, cellCmY, current);
             }
         }
-        if (mapCellSize >= 3)
-        {
-            // Optionally, you can also draw grid lines
-            for (int x = 0; x <= MAP_WIDTH; x++)
-            {
-                display.drawLine(mapOffsetX + x * mapCellSize, mapOffsetY, mapOffsetX + x * mapCellSize, mapOffsetY + MAP_HEIGHT * mapCellSize, TFT_BLACK);
-            }
-            for (int y = 0; y <= MAP_HEIGHT; y++)
-            {
-                display.drawLine(mapOffsetX, mapOffsetY + y * mapCellSize, mapOffsetX + MAP_WIDTH * mapCellSize, mapOffsetY + y * mapCellSize, TFT_BLACK);
-            }
-            // Optionally, you can also draw grid lines
-            for (int x = 0; x <= MAP_WIDTH; x++)
-            {
-                display.drawLine(mapOffsetX + x * mapCellSize, mapOffsetY, mapOffsetX + x * mapCellSize, mapOffsetY + MAP_HEIGHT * mapCellSize, TFT_BLACK);
-            }
-            for (int y = 0; y <= MAP_HEIGHT; y++)
-            {
-                display.drawLine(mapOffsetX, mapOffsetY + y * mapCellSize, mapOffsetX + MAP_WIDTH * mapCellSize, mapOffsetY + y * mapCellSize, TFT_BLACK);
-            }
-        }
+        
+        // Draw viewport lock indicator
+        display.fillCircle(currentWidth() - 10, VIEWPORT_MARGIN + 5, 3, viewportLocked ? TFT_GREEN : TFT_YELLOW);
     }
 
     // ************************************************************************
@@ -674,6 +756,11 @@ private:
     uint16_t mapCellSize;
     uint16_t mapOffsetX;
     uint16_t mapOffsetY;
+
+    // Viewport scrolling variables
+    int16_t viewportCenterX;  // Viewport center X position in cm
+    int16_t viewportCenterY;  // Viewport center Y position in cm
+    bool viewportLocked;      // true = auto-center on robot, false = manual control
 
     uint16_t touchX = 0, touchY = 0;
     bool lastTouchState = false;
