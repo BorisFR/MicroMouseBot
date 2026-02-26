@@ -608,6 +608,14 @@ public:
         String label = String(static_cast<uint16_t>(distanceCm)) + " cm";
         int16_t textX = static_cast<int16_t>(baseX - ux * 10);
         int16_t textY = static_cast<int16_t>(baseY - uy * 10);
+        if (textY < VIEWPORT_MARGIN)
+            textY = VIEWPORT_MARGIN;
+        if (textY > currentHeight() - VIEWPORT_MARGIN - 8)
+            textY = currentHeight() - VIEWPORT_MARGIN - 8;
+        if (textX < 0)
+            textX = 0;
+        if (textX > currentWidth() - 30)
+            textX = currentWidth() - 30;
         display.setTextColor(TFT_WHITE, TFT_BLACK);
         display.drawString(label, textX - 12, textY - 6, 1);
     }
@@ -721,6 +729,15 @@ public:
                 int16_t screenX = mapOffsetX + (cellCmX - viewportCenterX) * mapCellSize / CELL_SIZE + viewportWidthPixels / 2;
                 int16_t screenY = mapOffsetY + (cellCmY - viewportCenterY) * mapCellSize / CELL_SIZE + viewportHeightPixels / 2;
                 
+                // Skip drawing if the cell is outside the map viewport area
+                if (screenX + mapCellSize < 0 || screenX >= currentWidth() ||
+                    screenY + mapCellSize < VIEWPORT_MARGIN || screenY >= currentHeight() - VIEWPORT_MARGIN)
+                {
+                    current |= CellState::CELL_NOT_CHANGED;
+                    map->setCellState(cellCmX, cellCmY, current);
+                    continue;
+                }
+
                 // Draw cell
                 display.fillRect(screenX, screenY, mapCellSize, mapCellSize, color);
                 
