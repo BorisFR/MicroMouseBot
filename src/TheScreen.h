@@ -62,6 +62,8 @@ enum ScreenState
 // Viewport constants for map scrolling
 #define MAP_CELL_PIXEL_SIZE 18                                             // pixels, size of each map cell on the screen
 #define VIEWPORT_MARGIN 14                                                 // pixels, top and bottom margins for header/footer
+#define SCROLL_BUTTON_SIZE 40                                              // pixels, size of scroll arrow buttons
+#define SCROLL_STEP_CM 36                                                  // cm, scroll step (2 cells)
 
 class TheScreen
 {
@@ -477,6 +479,70 @@ public:
         forceMapRedraw();
     }
 
+    /// @brief Draws arrow buttons for manual map scrolling
+    void drawScrollButtons()
+    {
+        uint16_t btnColor = viewportLocked ? TFT_DARKGREY : colorFromRGB(0, 100, 200); // Blue if unlocked, grey if locked
+        uint16_t arrowColor = TFT_WHITE;
+        int16_t centerX = currentWidth() / 2;
+        int16_t centerY = (currentHeight() - 2 * VIEWPORT_MARGIN) / 2 + VIEWPORT_MARGIN;
+        
+        // Left button
+        int16_t leftX = 5;
+        int16_t leftY = centerY - SCROLL_BUTTON_SIZE / 2;
+        display.fillRoundRect(leftX, leftY, SCROLL_BUTTON_SIZE, SCROLL_BUTTON_SIZE, 5, btnColor);
+        display.fillTriangle(leftX + 30, leftY + 10, leftX + 30, leftY + 30, leftX + 10, leftY + 20, arrowColor);
+        
+        // Right button
+        int16_t rightX = currentWidth() - SCROLL_BUTTON_SIZE - 5;
+        int16_t rightY = centerY - SCROLL_BUTTON_SIZE / 2;
+        display.fillRoundRect(rightX, rightY, SCROLL_BUTTON_SIZE, SCROLL_BUTTON_SIZE, 5, btnColor);
+        display.fillTriangle(rightX + 10, rightY + 10, rightX + 10, rightY + 30, rightX + 30, rightY + 20, arrowColor);
+        
+        // Up button
+        int16_t upX = centerX - SCROLL_BUTTON_SIZE / 2;
+        int16_t upY = VIEWPORT_MARGIN + 5;
+        display.fillRoundRect(upX, upY, SCROLL_BUTTON_SIZE, SCROLL_BUTTON_SIZE, 5, btnColor);
+        display.fillTriangle(upX + 10, upY + 30, upX + 30, upY + 30, upX + 20, upY + 10, arrowColor);
+        
+        // Down button
+        int16_t downX = centerX - SCROLL_BUTTON_SIZE / 2;
+        int16_t downY = currentHeight() - VIEWPORT_MARGIN - SCROLL_BUTTON_SIZE - 5;
+        display.fillRoundRect(downX, downY, SCROLL_BUTTON_SIZE, SCROLL_BUTTON_SIZE, 5, btnColor);
+        display.fillTriangle(downX + 10, downY + 10, downX + 30, downY + 10, downX + 20, downY + 30, arrowColor);
+    }
+
+    /// @brief Checks if touch coordinates are within a button area
+    /// @return 0=none, 1=left, 2=right, 3=up, 4=down
+    uint8_t getTouchedScrollButton(uint16_t x, uint16_t y)
+    {
+        int16_t centerX = currentWidth() / 2;
+        int16_t centerY = (currentHeight() - 2 * VIEWPORT_MARGIN) / 2 + VIEWPORT_MARGIN;
+        
+        // Left button (scroll viewport left)
+        if (x >= 5 && x <= 5 + SCROLL_BUTTON_SIZE &&
+            y >= centerY - SCROLL_BUTTON_SIZE / 2 && y <= centerY + SCROLL_BUTTON_SIZE / 2)
+            return 1;
+        
+        // Right button (scroll viewport right)
+        if (x >= currentWidth() - SCROLL_BUTTON_SIZE - 5 && x <= currentWidth() - 5 &&
+            y >= centerY - SCROLL_BUTTON_SIZE / 2 && y <= centerY + SCROLL_BUTTON_SIZE / 2)
+            return 2;
+        
+        // Up button (scroll viewport up)
+        if (x >= centerX - SCROLL_BUTTON_SIZE / 2 && x <= centerX + SCROLL_BUTTON_SIZE / 2 &&
+            y >= VIEWPORT_MARGIN + 5 && y <= VIEWPORT_MARGIN + 5 + SCROLL_BUTTON_SIZE)
+            return 3;
+        
+        // Down button (scroll viewport down)
+        if (x >= centerX - SCROLL_BUTTON_SIZE / 2 && x <= centerX + SCROLL_BUTTON_SIZE / 2 &&
+            y >= currentHeight() - VIEWPORT_MARGIN - SCROLL_BUTTON_SIZE - 5 && 
+            y <= currentHeight() - VIEWPORT_MARGIN - 5)
+            return 4;
+        
+        return 0; // No button touched
+    }
+
     void showMap()
     {
         if (currentScreen != SCREEN_MAP)
@@ -567,8 +633,8 @@ public:
             }
         }
         
-        // Draw viewport lock indicator
-        display.fillCircle(currentWidth() - 10, VIEWPORT_MARGIN + 5, 3, viewportLocked ? TFT_GREEN : TFT_YELLOW);
+        // Draw scroll control buttons
+        drawScrollButtons();
     }
 
     // ************************************************************************
@@ -671,8 +737,56 @@ public:
         }
         if (touched && !lastTouchState)
         {
-            switchToNextScreen();
-            changeScreen(currentScreen);
+            // If on MAP screen, check for scroll button touches
+            if (currentScreen == SCREEN_MAP)
+            {
+                uint8_t button = getTouchedScrollButton(x, y);
+                if (button > 0)
+                {
+                    // Handle scroll button
+                    switch (button)
+                    {
+                    case 1: // Left button - scroll viewport left
+                        scrollViewport(-SCROLL_STEP_CM, 0);
+                        showMap();
+                        break;
+                    case 2: // Right button - scroll viewport right
+                        scrollViewport(SCROLL_STEP_CM, 0);
+                        showMap();
+                        break;
+                    case 3: // Up button - scroll viewport up
+                        scrollViewport(0, -SCROLL_STEP_CM);
+                        showMap();
+                        break;
+                    case 4: // Down button - scroll viewport down
+                        scrollViewport(0, SCROLL_STEP_CM);
+                        showMap();
+                        break;
+                    }
+                }
+                else
+                {
+                    // Touch outside buttons - toggle viewport lock or change screen
+                    if (!viewportLocked)
+                    {
+                        // If unlocked, first touch re-locks viewport
+                        centerViewportOnRobot();
+                        showMap();
+                    }
+                    else
+                    {
+                        // If locked, switch to next screen
+                        switchToNextScreen();
+                        changeScreen(currentScreen);
+                    }
+                }
+            }
+            else
+            {
+                // On other screens, just switch screens
+                switchToNextScreen();
+                changeScreen(currentScreen);
+            }
         }
         lastTouchState = touched;
         return touched;
