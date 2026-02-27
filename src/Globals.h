@@ -45,14 +45,18 @@ extern MyTrace myTrace;
 #include "Sensors/AllSensors.h"
 extern AllSensors allSensors;
 
-// unit is centimeter
-#define CELL_SIZE 18 // in centimeter. Each cell in the map represents an 18x18 cm area in the real world. This means our 288x288 cm map will be divided into a 16x16 grid of cells.
-#define CELLS_BY_WIDTH 32
-#define CELLS_BY_HEIGHT 32
-#define MAP_WIDTH (CELL_SIZE * CELLS_BY_WIDTH)   // 288 cm
-#define MAP_HEIGHT (CELL_SIZE * CELLS_BY_HEIGHT) // 288 cm
 // 288*288 cm map, divided into 16*16 cells of 18*18 cm each
-// 82944 bytes for the occupancy grid
+// 82944 bytes for the occupancy grid (1 byte per cell), which can be stored in PSRAM.
+// unit is centimeter
+#define CELL_SIZE 1 // in centimeter. 
+#define CELLS_BY_WIDTH 32 * 18
+#define CELLS_BY_HEIGHT 32 * 18
+#define MAP_WIDTH (CELL_SIZE * CELLS_BY_WIDTH) 
+#define MAP_HEIGHT (CELL_SIZE * CELLS_BY_HEIGHT)
+// The map is represented as a 2D grid of cells, where each cell can be in one of three states:
+// With PSRAM, we can afford to store additional information for each cell, 
+// such as the timestamp of the last update or a confidence level for the occupancy state. 
+// This would allow us to implement more advanced features like decay of old information or probabilistic occupancy grids.
 
 // The map is represented as a 2D grid of cells, where each cell can be in one of three states:
 enum CellState : uint8_t

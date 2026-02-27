@@ -60,7 +60,7 @@ enum ScreenState
 #define CAR_SENSOR_TOP_RIGHT_ROTATE_OFFSET (45.0f)                        // degrees, rotation offset of the top right sensor relative to the car's forward direction
 
 // Viewport constants for map scrolling
-#define MAP_CELL_PIXEL_SIZE 18                                             // pixels, size of each map cell on the screen
+#define MAP_CELL_PIXEL_SIZE 8                                              // pixels, size of each map cell on the screen
 #define VIEWPORT_MARGIN 14                                                 // pixels, top and bottom margins for header/footer
 #define SCROLL_BUTTON_SIZE 40                                              // pixels, size of scroll arrow buttons
 #define SCROLL_STEP_CM 36                                                  // cm, scroll step (2 cells)
@@ -716,7 +716,7 @@ public:
                     if (current == CellState::CELL_UNKNOWN)
                         color = TFT_GREY;
                     else if (current == CellState::CELL_FREE)
-                        color = TFT_DARKGREEN;
+                        color = TFT_CYAN;
                     else if (current == CellState::CELL_OCCUPIED)
                         color = TFT_RED;
                     else if (current == CellState::CELL_PERHAPS_OCCUPIED)
