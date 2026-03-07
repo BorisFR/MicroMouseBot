@@ -154,3 +154,45 @@ RTC_GPIO21 (GPIO21)
 
 
 
+
+
+RP LIDAR A1M8
+https://www.slamtec.com/en/Lidar/A1  
+https://github.com/slamtec/rplidar_sdk  
+permettant la mesure de distances de 0,15 à 12 m sur 360° grâce à un moteur autorisant une rotation complète.
+8000 mesures par secondes
+La plateforme inférieure du module comporte 4 entretoises autorisant une fixation facile via 4 vis M2,5
+
+Caractéristiques:
+Alimentation:
+- partie logique: 5 Vcc
+- partie moteur: 5 à 10 Vcc
+Consommation capteur:
+- démarrage: 500 mA
+- veille: 80 mA
+- mesure: 300 mA
+Consommation: moteur: 100 mA à 5 Vcc
+Interface capteur:
+- UART
+- micro-USB (convertisseur inclus, cordon micro-USB non inclus)
+Interface moteur: PWM
+Distance de mesure: 0,15 à 12 m
+Angle de mesure: 360 °
+Fréquence de mesure: 8000 mesures/sec
+Fréquence d'échantillonnage: 2 à 10 Hz (5,5 Hz typique)
+Résolution de mesure: 0,5 mm
+Résolution angulaire: 1° à 5,5 Hz
+Température de service: 0 à 45 °
+Dimensions: 98,5 x 60 mm
+Poids: 170 g
+Version 2.1
+
+D:\Downloads\MicroMouse\RPLIDAR-A1M8>simple_grabber.exe \\.\com16
+RPLIDAR S/N: AD98FA86C2E392D0A5E59FF73A4C5C60
+Version: 1.10.0
+Firmware Ver: 1.29
+Hardware Rev: 7
+RPLidar health status : OK. (errorcode: 0)
+waiting for data...
+*WARN* YOU ARE USING DEPRECATED API: grabScanData(), PLEASE MOVE TO grabScanDataHq()
+*WARN* YOU ARE USING DEPRECATED API: ascendScanData(rplidar_response_measurement_node_t*, size_t), PLEASE MOVE TO ascendScanData(rplidar_response_measurement_node_hq_t*, size_t)

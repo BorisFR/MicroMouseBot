@@ -53,7 +53,6 @@ extern AllSensors allSensors;
 #define CELLS_BY_HEIGHT 32 * 18
 #define MAP_WIDTH (CELL_SIZE * CELLS_BY_WIDTH) 
 #define MAP_HEIGHT (CELL_SIZE * CELLS_BY_HEIGHT)
-// The map is represented as a 2D grid of cells, where each cell can be in one of three states:
 // With PSRAM, we can afford to store additional information for each cell, 
 // such as the timestamp of the last update or a confidence level for the occupancy state. 
 // This would allow us to implement more advanced features like decay of old information or probabilistic occupancy grids.
