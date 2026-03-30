@@ -12,11 +12,12 @@
 #include "TheCar.h"
 #include "TheMap.h"
 #include "TheScreen.h"
+#include "TB6612FNG.h"
 
 class App
 {
 public:
-    App(BoardLed &boardLedRef, TheScreen &screenRef, AllSensors &sensorsRef, TheMap &mapRef, TheCar &carRef, BotPose &poseRef) : boardLed(boardLedRef), theScreen(screenRef), allSensors(sensorsRef), theMap(mapRef), theCar(carRef), pose(poseRef) {}
+    App(BoardLed &boardLedRef, TheScreen &screenRef, AllSensors &sensorsRef, TheMap &mapRef, TheCar &carRef, BotPose &poseRef, TB6612FNG &motorDriverRef) : boardLed(boardLedRef), theScreen(screenRef), allSensors(sensorsRef), theMap(mapRef), theCar(carRef), pose(poseRef), motorDriver(motorDriverRef) {}
 
     void setup()
     {
@@ -46,6 +47,7 @@ public:
                                   { theScreen.showHubState(); });
 
         allSensors.begin();
+        motorDriver.setup(MOTOR_A1_PIN, MOTOR_A2_PIN, MOTOR_B1_PIN, MOTOR_B2_PIN, MOTOR_PWM1_PIN, MOTOR_PWM2_PIN, MOTOR_STANDBY_PIN);
         theMap.setup();
         theCar.setup();
         startSensorTask();
@@ -73,6 +75,7 @@ private:
     BoardLed &boardLed;
     TheScreen &theScreen;
     AllSensors &allSensors;
+    TB6612FNG &motorDriver;
     TheMap &theMap;
     TheCar &theCar;
     BotPose &pose;

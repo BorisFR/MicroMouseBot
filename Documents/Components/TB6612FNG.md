@@ -1,4 +1,5 @@
 # TB6612FNG  
+Driver pour 2 moteurs  
 
 Alimentation:  
 - partie logique: 2,7 à 5,5 Vcc (via le microcontrôleur)  

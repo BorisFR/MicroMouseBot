@@ -108,14 +108,14 @@ P5 (Moyenne) - Navigation autonome
 ### 6c) Diagramme repere (ASCII)
 
 ```
-	  +y
-	   ^
-	   |
-	   |
+		  +y
+		   ^
+		   |
+    	   |
    (-x) <--O--> (+x)
-	   |
-	   |
-	  -y
+		   |
+		   |
+		  -y
 
 theta = 0 le long de +x, sens positif a definir (horaire ou anti-horaire)
 ```
