@@ -4,6 +4,20 @@ GPIO extender via I2C : CH423
 16 GPO (OUT) + 8 GPIO (In/Out) avec interrupt
 address I2C: de 0x20 à 0x3F
 
+GPIO extender via I2C : MCP23017
+=======================
+16 GPIO => plus que 15 depuis 2022
+address I2C: 0x20 (plusieurs possible, jusqu'à 0x27)
+Reset : sur 3.3v https://tasmota.github.io/docs/MCP230xx/   mais pas obligatoire !
+https://www.esp32learning.com/code/esp32-and-mcp23017-flashy-led-example.php  
+A0/A1/A2 : GND donne address 0x20
+LIB: Adafruit_MCP23017.h
+à voir: https://wolles-elektronikkiste.de/en/port-expander-mcp23017-2 
+et sa LIB: https://github.com/wollewald/MCP23017_WE/tree/master
+https://wolles-elektronikkiste.de/en/mcp23x1y-port-expander  
+
+
+
 
 ESP32-S3 : ESP32-S3R8n16 PID 0x303a / VID 0x1001 N16R8 => 16MB (Quad SPI) PSRAM 8MB (Octal SPI)
 ==========

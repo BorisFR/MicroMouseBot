@@ -21,6 +21,12 @@ public:
     void setup()
     {
         myTrace.setup();
+
+        Serial.printf("Total heap: %d\n", ESP.getHeapSize());
+        Serial.printf("Free heap: %d\n", ESP.getFreeHeap());
+        Serial.printf("Total PSRAM: %d\n", ESP.getPsramSize());
+        Serial.printf("Free PSRAM: %d\n", ESP.getFreePsram());
+
         myTrace.println(" 🤖 *** MicroMouse BOT ***");
         boardLed.setup();
         boardLed.setColorGreen();
@@ -43,6 +49,11 @@ public:
         theMap.setup();
         theCar.setup();
         startSensorTask();
+
+        Serial.printf("Total heap: %d\n", ESP.getHeapSize());
+        Serial.printf("Free heap: %d\n", ESP.getFreeHeap());
+        Serial.printf("Total PSRAM: %d\n", ESP.getPsramSize());
+        Serial.printf("Free PSRAM: %d\n", ESP.getFreePsram());
     }
 
     void loop()
@@ -133,14 +144,13 @@ private:
 
         if (theMap.hasChanged())
             theScreen.showMap();
-            
+
         for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
             theScreen.showVL53L0Xstate(i, allSensors.isSensorInitialized(i), allSensors.isSensorErrorDetected(i), lastFrame.distances[i]);
 
         theScreen.showGyro(allSensors.isGyroReady(), allSensors.isGyroErrorDetected(), allSensors.getGyroHeading());
         theScreen.showMagnetometer(allSensors.isMagnetometerReady(), allSensors.isMagnetometerErrorDetected(), allSensors.getMagnetometerHeading());
         theScreen.showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), allSensors.isIMUCalibrated(), lastFrame.heading);
-
     }
 };
 
