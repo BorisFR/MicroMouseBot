@@ -7,6 +7,7 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 
+#include "Enums.h"
 #include "BoardLed.h"
 #include "Globals.h"
 #include "TheCar.h"
@@ -114,49 +115,6 @@ public:
     }
 
 private:
-    enum class MotionSelfTestState : uint8_t
-    {
-        STATE_DISABLED,
-        STATE_FORWARD,
-        STATE_STOP_AFTER_FORWARD,
-        STATE_TURN_LEFT,
-        STATE_STOP_AFTER_TURN,
-        STATE_BACKWARD,
-        STATE_COMPLETE
-    };
-
-    enum class SimulationScenario : uint8_t
-    {
-        SCENARIO_SELFTEST,
-        SCENARIO_STRAIGHT,
-        SCENARIO_SQUARE,
-        SCENARIO_SPIN
-    };
-
-    enum class RobotState : uint8_t
-    {
-        STATE_INIT,
-        STATE_IDLE,
-        STATE_MAPPING,
-        STATE_NAVIGATE,
-        STATE_ERROR
-    };
-
-    enum class MotionCommand : uint8_t
-    {
-        CMD_STOP,
-        CMD_FORWARD,
-        CMD_BACKWARD,
-        CMD_TURN_LEFT,
-        CMD_TURN_RIGHT
-    };
-
-    struct Waypoint
-    {
-        uint16_t x = 0;
-        uint16_t y = 0;
-        bool valid = false;
-    };
 
     // doit être ajusté au robot réel (entraxe roue-gauche ↔ roue-droite).
     // Un entraxe plus grand rendra la rotation plus lente mais plus précise, tandis qu'un entraxe plus petit rendra la rotation plus rapide mais moins précise.
