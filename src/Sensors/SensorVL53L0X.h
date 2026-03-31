@@ -13,6 +13,7 @@
 #define VL53L0X_MIN_DISTANCE 3   // cm
 
 #define VL53L0X_DELAY_BETWEEN_READS 200 // ms
+#define VL53L0X_RECOVERY_VALID_READING_COUNT 3
 
 class SensorVL53L0X
 {
@@ -24,6 +25,12 @@ public:
     void setup()
     {
         myTrace.println("SensorVL53L0X setup");
+        isInitialized = false;
+        inErrorState = false;
+        countError = 0;
+        consecutiveValidReadings = 0;
+        changed = false;
+        lastDistance = 0;
         sensor.setBus(&Wire);
         sensor.setAddress(VL53L0x_ADDRESS);
         sensor.setTimeout(VL53L0x_TIMEOUT);
@@ -71,26 +78,22 @@ public:
         uint16_t distance = sensor.readRangeContinuousMillimeters() / 10; // Convert to cm
         if (sensor.timeoutOccurred())
         {
-            // myTrace.println("VL53L0X timeout");
-            inErrorState = true;
-            countError++;
-            if (countError == VL53L0X_ERROR_READING_COUNT_THRESHOLD && theCallbackError)
-                theCallbackError();
-            if (countError > VL53L0X_ERROR_READING_COUNT_THRESHOLD)
-                countError--; // prevent overflow
+            registerInvalidReading();
+            return;
         }
-        else
+
+        if (distance == 0)
         {
-            inErrorState = false;
-            countError = 0;
-            if (distance < VL53L0X_MAX_DISTANCE && distance >= VL53L0X_MIN_DISTANCE && distance != lastDistance)
-            {
-                lastDistance = distance;
-                changed = true;
-                if (theCallbackValueChange)
-                    theCallbackValueChange(distance);
-            }
+            registerInvalidReading();
+            return;
         }
+
+        if (distance < VL53L0X_MIN_DISTANCE)
+            distance = VL53L0X_MIN_DISTANCE;
+        if (distance > VL53L0X_MAX_DISTANCE)
+            distance = VL53L0X_MAX_DISTANCE;
+
+        registerValidReading(distance);
     }
 
     bool isInitializedSuccessfully()
@@ -100,11 +103,7 @@ public:
 
     bool isInErrorState()
     {
-        if (countError >= VL53L0X_ERROR_READING_COUNT_THRESHOLD)
-        {
-            return true;
-        }
-        return false;
+        return inErrorState;
     }
 
     bool hasChanged()
@@ -133,10 +132,53 @@ public:
     }
 
 private:
+    void registerInvalidReading()
+    {
+        consecutiveValidReadings = 0;
+        if (countError < 255)
+            countError++;
+        if (!inErrorState && countError >= VL53L0X_ERROR_READING_COUNT_THRESHOLD)
+        {
+            inErrorState = true;
+            if (theCallbackError)
+                theCallbackError();
+        }
+    }
+
+    void registerValidReading(uint16_t distance)
+    {
+        if (inErrorState)
+        {
+            if (consecutiveValidReadings < 255)
+                consecutiveValidReadings++;
+            if (consecutiveValidReadings >= VL53L0X_RECOVERY_VALID_READING_COUNT)
+            {
+                inErrorState = false;
+                countError = 0;
+                consecutiveValidReadings = 0;
+            }
+        }
+        else
+        {
+            countError = 0;
+            consecutiveValidReadings = 0;
+        }
+
+        if (distance != lastDistance)
+        {
+            changed = false;
+            lastDistance = distance;
+            changed = true;
+            if (theCallbackValueChange)
+                theCallbackValueChange(distance);
+        }
+    }
+
     VL53L0X sensor;
     bool isInitialized = false;
     bool inErrorState = false;
     uint8_t countError = 0;
+    uint8_t consecutiveValidReadings = 0;
     EVENT_ERROR theCallbackError;
     EVENT_CHANGE_WITH_UINT16 theCallbackValueChange;
     elapsedMillis timeElapsed;

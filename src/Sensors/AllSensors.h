@@ -184,8 +184,7 @@ public:
     }
 
     bool isGyroErrorDetected() {
-        return false; // Placeholder, implement actual error detection logic for the gyro if available. For now, we are not simulating gyro errors, so we return false to indicate no error.
-        // return theCompass.isErrorDetected(); // Using error detection as a proxy for error state for simplicity
+        return theCompass.isGyroErrorDetected();
     }
 
     float getGyroHeading() {
@@ -197,8 +196,7 @@ public:
     }
 
     bool isMagnetometerErrorDetected() {
-        return false; // Placeholder, implement actual error detection logic for the magnetometer if available. For now, we are not simulating magnetometer errors, so we return false to indicate no error.
-        // return theCompass.isErrorDetected(); // Using error detection as a proxy for error state for simplicity
+        return theCompass.isMagnetometerErrorDetected();
     }
 
     float getMagnetometerHeading() {
@@ -207,8 +205,7 @@ public:
 
     bool isIMUErrorDetected()
     {
-        return false; // Placeholder, implement actual error detection logic for the IMU if available. For now, we are not simulating IMU errors, so we return false to indicate no error.
-        // return theCompass.isErrorDetected(); // Using error detection as a proxy for error state for simplicity
+        return theCompass.isErrorDetected();
     }
 
     float getHeading()

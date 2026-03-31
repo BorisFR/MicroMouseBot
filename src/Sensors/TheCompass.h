@@ -39,6 +39,11 @@ public:
 
     void begin()
     {
+        imuErrorDetected = false;
+        gyroErrorDetected = false;
+        magnetometerErrorDetected = false;
+        lastUpdateMicros = 0;
+        lastGoodSampleMs = 0;
         if (lis3mdl.begin_I2C(LIS3MDL_ADDRESS))
         {
             myTrace.println("🧭 LIS3MDL initialized successfully");
@@ -60,9 +65,14 @@ public:
         }
 
         isInitialized = lis3mdlInitialized && lsm6dsInitialized; // Set to true if initialization is successful
+        gyroErrorDetected = !lsm6dsInitialized;
+        magnetometerErrorDetected = !lis3mdlInitialized;
+        imuErrorDetected = !isInitialized;
         currentHeading = 0.0f;                                   // Initialize heading to a default value
         if (theCallbackValueChange)
             theCallbackValueChange(currentHeading);
+        if (!isInitialized && theCallbackError)
+            theCallbackError();
 
         if (isInitialized)
         {
@@ -297,11 +307,23 @@ public:
     void loop()
     {
         if (!isInitialized)
+        {
+            imuErrorDetected = true;
+            gyroErrorDetected = !lsm6dsInitialized;
+            magnetometerErrorDetected = !lis3mdlInitialized;
             return; // Skip reading if not initialized
+        }
         sensors_event_t accel, gyro, mag; 
         accelerometer->getEvent(&accel);
         gyroscope->getEvent(&gyro);
         magnetometer->getEvent(&mag);
+        if (!isFiniteTriple(accel.acceleration.x, accel.acceleration.y, accel.acceleration.z) ||
+            !isFiniteTriple(gyro.gyro.x, gyro.gyro.y, gyro.gyro.z) ||
+            !isFiniteTriple(mag.magnetic.x, mag.magnetic.y, mag.magnetic.z))
+        {
+            markRuntimeError();
+            return;
+        }
         if (isCalibrationLoaded())
         {
             calibration.calibrate(mag);
@@ -314,14 +336,29 @@ public:
         float gy = gyro.gyro.y * SENSORS_RADS_TO_DPS;
         float gz = gyro.gyro.z * SENSORS_RADS_TO_DPS;
         uint32_t now = micros();
-        float deltaTime = (now - lastUpdateMicros) / 1000000.0f;
+        float deltaTime = (lastUpdateMicros == 0) ? 0.0f : (now - lastUpdateMicros) / 1000000.0f;
         lastUpdateMicros = now;
+        if (deltaTime < 0.0f)
+        {
+            markRuntimeError();
+            return;
+        }
         filter.update(gx, gy, gz, 
             accel.acceleration.x, accel.acceleration.y, accel.acceleration.z, 
             mag.magnetic.x, mag.magnetic.y, mag.magnetic.z); //, deltaTime);
         float roll = filter.getRoll();
         float pitch = filter.getPitch();
         float heading = filter.getYaw();
+        if (!isfinite(roll) || !isfinite(pitch) || !isfinite(heading))
+        {
+            markRuntimeError();
+            return;
+        }
+
+        imuErrorDetected = false;
+        gyroErrorDetected = false;
+        magnetometerErrorDetected = false;
+        lastGoodSampleMs = millis();
         // float qw, qx, qy, qz;
         // filter.getQuaternion(&qw, &qx, &qy, &qz);
 
@@ -362,6 +399,21 @@ public:
         return currentHeading; // Return the current heading value
     }
 
+    bool isErrorDetected()
+    {
+        return imuErrorDetected || isDataStale();
+    }
+
+    bool isGyroErrorDetected()
+    {
+        return gyroErrorDetected || isDataStale();
+    }
+
+    bool isMagnetometerErrorDetected()
+    {
+        return magnetometerErrorDetected || isDataStale();
+    }
+
     void eventError(EVENT_ERROR callback)
     {
         theCallbackError = callback;
@@ -384,6 +436,7 @@ public:
 
 private:
     static constexpr float HEADING_EPSILON_DEG = 0.2f;
+    static constexpr uint32_t DATA_STALE_TIMEOUT_MS = 500;
     bool isInitialized = false;
     EVENT_ERROR theCallbackError;
     float currentHeading = 0.0f;
@@ -402,6 +455,30 @@ private:
     // Adafruit_Madgwick filter; // faster than NXP
     // Adafruit_Mahony filter;  // fastest/smalleset
     uint32_t lastUpdateMicros = 0;
+    unsigned long lastGoodSampleMs = 0;
+    bool imuErrorDetected = false;
+    bool gyroErrorDetected = false;
+    bool magnetometerErrorDetected = false;
+
+    static bool isFiniteTriple(float x, float y, float z)
+    {
+        return isfinite(x) && isfinite(y) && isfinite(z);
+    }
+
+    bool isDataStale() const
+    {
+        return isInitialized && lastGoodSampleMs != 0 && (millis() - lastGoodSampleMs > DATA_STALE_TIMEOUT_MS);
+    }
+
+    void markRuntimeError()
+    {
+        const bool wasInError = imuErrorDetected || gyroErrorDetected || magnetometerErrorDetected;
+        imuErrorDetected = true;
+        gyroErrorDetected = true;
+        magnetometerErrorDetected = true;
+        if (!wasInError && theCallbackError)
+            theCallbackError();
+    }
 };
 
 #endif // THE_COMPASS_H
