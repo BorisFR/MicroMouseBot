@@ -1,0 +1,58 @@
+# Plan implementation MicroMouseBot
+
+## Etat actuel
+- GPIO conflict resolved: `BOARD_LED_PIN=48` and `MOTOR_B2_PIN=21` in `platformio.ini`.
+- Motor command layer started: `TheCar` now controls motor actions through callbacks linked in `App`.
+- Safety guard added: command timeout auto-stop in `TheCar` loop.
+- Differential drive primitives added in `TB6612FNG`: `drive(left,right)`, `turnLeft(speed)`, `turnRight(speed)`.
+- Differential odometry integrated in `App` (encoder ticks -> x/y/theta update loop).
+- Lightweight complementary heading fusion integrated in `App` (odometry + IMU heading).
+- Pose telemetry added on serial output for field calibration.
+
+## Phase 1 - Critical base (in progress)
+1. [DONE] Fix GPIO pin conflict LED vs motor.
+2. [DONE] Connect vehicle command layer to motor driver.
+3. [DONE] Add minimal movement API with safety timeout:
+   - forward speed
+   - backward speed
+   - turn left/right speed
+   - stop
+4. [DONE] Add an explicit command source with a bench-safe motion self-test state machine in `App`.
+
+## Phase 1 - Result
+- The critical base is now complete.
+- Motion commands are issued from an explicit source instead of relying only on direct method calls.
+- The self-test path is disabled by default for safety and can be enabled for bench validation.
+
+## Phase 2 - Pose reliability
+1. [DONE] Integrate differential odometry from encoders into pose update (x, y, theta).
+2. [DONE] Add lightweight heading fusion (IMU + odometry, complementary filter).
+3. [NEXT] Tune geometry/fusion constants on hardware:
+   - wheel base (`WHEEL_BASE_CM`)
+   - blend factor (`IMU_HEADING_BLEND_ALPHA`)
+4. [NEXT] Enable and structure encoder telemetry windows for debug and validation campaigns.
+
+## Phase 3 - Sensor robustness and UI integrity
+1. [DONE] Replace IMU/gyro/magnetometer error placeholders with real sensor status propagation.
+2. [DONE] Improve VL53L0X invalid reading handling and recovery policy.
+3. [DONE] Harden map/screen bounds and coordinate conversions.
+4. [DONE] Add a lightweight software simulation path for repeatable validation without robot hardware.
+
+## Phase 4 - Autonomous navigation
+1. [DONE] Add robot state machine: INIT, IDLE, MAPPING, NAVIGATE, ERROR.
+2. [DONE] Implement first motion controller (heading/forward + emergency stop).
+3. [DONE] Add progressive planner (local waypoint).
+4. [NEXT] Extend planner to flood-fill/A* once hardware and map confidence are validated.
+
+## Verification checklist
+1. Build after each phase (PlatformIO).
+2. Bench test motors: forward/backward/turn/stop behavior.
+3. Validate safety timeout stop behavior.
+4. Validate odometry on line and square trajectories.
+5. Validate obstacle stop behavior with front sensor.
+6. Validate UI consistency and no map rendering artifacts.
+
+## Notes
+- Keep `App` as orchestrator for now.
+- Move navigation logic to a dedicated `RobotController` module once command loop and odometry are stable.
+- Simulation mode now supports repeatable scenarios (self-test, straight, square, spin) to validate pose/map logic without physical hardware.
