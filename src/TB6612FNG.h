@@ -56,6 +56,28 @@ public:
         analogWrite(pinPWM2, speed);
     }
 
+    void drive(int16_t leftSpeed, int16_t rightSpeed) {
+        leftSpeed = constrain(leftSpeed, -255, 255);
+        rightSpeed = constrain(rightSpeed, -255, 255);
+
+        if (leftSpeed == 0 && rightSpeed == 0) {
+            stop();
+            return;
+        }
+
+        deactivateStandBy();
+        applyMotor(pinA1, pinA2, pinPWM1, leftSpeed);
+        applyMotor(pinB1, pinB2, pinPWM2, rightSpeed);
+    }
+
+    void turnLeft(uint8_t speed) {
+        drive(-speed, speed);
+    }
+
+    void turnRight(uint8_t speed) {
+        drive(speed, -speed);
+    }
+
     void stop() {
         digitalWrite(pinA1, LOW);
         digitalWrite(pinA2, LOW);
@@ -84,6 +106,24 @@ private:
             digitalWrite(pinStandBy, HIGH);
             standByActive = false;
         }
+    }
+
+    void applyMotor(uint8_t pin1, uint8_t pin2, uint8_t pwmPin, int16_t speed) {
+        if (speed > 0) {
+            digitalWrite(pin1, HIGH);
+            digitalWrite(pin2, LOW);
+            analogWrite(pwmPin, speed);
+            return;
+        }
+        if (speed < 0) {
+            digitalWrite(pin1, LOW);
+            digitalWrite(pin2, HIGH);
+            analogWrite(pwmPin, -speed);
+            return;
+        }
+        digitalWrite(pin1, LOW);
+        digitalWrite(pin2, LOW);
+        analogWrite(pwmPin, 0);
     }
 
 };

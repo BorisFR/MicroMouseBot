@@ -49,6 +49,18 @@ public:
 
         allSensors.begin();
         motorDriver.setup(MOTOR_A1_PIN, MOTOR_A2_PIN, MOTOR_B1_PIN, MOTOR_B2_PIN, MOTOR_PWM1_PIN, MOTOR_PWM2_PIN, MOTOR_STANDBY_PIN);
+        theCar.setMotorCallbacks(
+            [this](uint8_t speed)
+            { motorDriver.forward(speed); },
+            [this](uint8_t speed)
+            { motorDriver.backward(speed); },
+            [this](uint8_t speed)
+            { motorDriver.turnLeft(speed); },
+            [this](uint8_t speed)
+            { motorDriver.turnRight(speed); },
+            [this]()
+            { motorDriver.stop(); });
+        theCar.setCommandTimeoutMs(500);
         wheelEncoderLeft.setup(0, WHEEL_ENCODER_LEFT_A_PIN, WHEEL_ENCODER_LEFT_B_PIN);
         wheelEncoderRight.setup(1, WHEEL_ENCODER_RIGHT_A_PIN, WHEEL_ENCODER_RIGHT_B_PIN);
 
