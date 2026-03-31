@@ -49,8 +49,8 @@ public:
 
         allSensors.begin();
         motorDriver.setup(MOTOR_A1_PIN, MOTOR_A2_PIN, MOTOR_B1_PIN, MOTOR_B2_PIN, MOTOR_PWM1_PIN, MOTOR_PWM2_PIN, MOTOR_STANDBY_PIN);
-        wheelEncoderLeft.setup(wheelEncoderLeft, 0, WHEEL_ENCODER_LEFT_A_PIN, WHEEL_ENCODER_LEFT_B_PIN);
-        wheelEncoderRight.setup(wheelEncoderRight, 1, WHEEL_ENCODER_RIGHT_A_PIN, WHEEL_ENCODER_RIGHT_B_PIN);
+        wheelEncoderLeft.setup(0, WHEEL_ENCODER_LEFT_A_PIN, WHEEL_ENCODER_LEFT_B_PIN);
+        wheelEncoderRight.setup(1, WHEEL_ENCODER_RIGHT_A_PIN, WHEEL_ENCODER_RIGHT_B_PIN);
 
         theMap.setup();
         theCar.setup();

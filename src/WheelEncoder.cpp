@@ -35,7 +35,7 @@ static void handleInterruptB2Static()
     }
 }
 
-void WheelEncoder::setup(WheelEncoder &ref, uint8_t index, uint8_t pinA, uint8_t pinB)
+void WheelEncoder::setup(uint8_t index, uint8_t pinA, uint8_t pinB)
 {
     myTrace.println("🔄 wheel encoder setup");
     this->pinA = pinA;
@@ -45,18 +45,21 @@ void WheelEncoder::setup(WheelEncoder &ref, uint8_t index, uint8_t pinA, uint8_t
     pinMode(pinB, INPUT);
     ticks = 0;
     lastEncoded = (digitalRead(pinA) << 1) | digitalRead(pinB);
-    lastTimeRPM = millis();
+    lastResetTimeMs = millis();
     switch (index)
     {
     case 0:
-        wheelInstance1 = &ref;
+        wheelInstance1 = this;
         attachInterrupt(digitalPinToInterrupt(pinA), handleInterruptA1Static, CHANGE);
         attachInterrupt(digitalPinToInterrupt(pinB), handleInterruptB1Static, CHANGE);
         break;
     case 1:
-        wheelInstance2 = &ref;
+        wheelInstance2 = this;
         attachInterrupt(digitalPinToInterrupt(pinA), handleInterruptA2Static, CHANGE);
         attachInterrupt(digitalPinToInterrupt(pinB), handleInterruptB2Static, CHANGE);
+        break;
+    default:
+        myTrace.println("⚠️ wheel encoder setup: invalid index");
         break;
     }
 }

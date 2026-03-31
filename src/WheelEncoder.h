@@ -49,7 +49,7 @@ public:
 
     ~WheelEncoder() { myTrace.println("🔄 wheel encoder unloaded"); }
 
-    void setup(WheelEncoder &ref, uint8_t index, uint8_t pinA, uint8_t pinB);
+    void setup(uint8_t index, uint8_t pinA, uint8_t pinB);
 
     void loop() {
         // Implementation for wheel encoder loop
@@ -84,66 +84,56 @@ public:
     void resetTicks() {
         noInterrupts();
         ticks = 0;
+        lastResetTimeMs = millis();
         interrupts();
-        lastTimeRPM = millis();
     }
 
     /// @brief Calculate the RPM of the wheel based on the tick count and wheel circumference.
     /// @return RPM value (revolutions per minute)
     float getRPM() {
-        noInterrupts();
-        int32_t currentTicks = ticks;
-        interrupts();
+        int32_t currentTicks;
+        unsigned long elapsedMs;
+        getSnapshot(currentTicks, elapsedMs);
 
-        unsigned long currentTime = millis();
-        float deltaTimeMinutes = (currentTime - lastTimeRPM) / 60000.0; // Convert ms to minutes
-        float deltaDistanceMeters = (currentTicks * WHEEL_CIRCUMFERENCE_METERS) / COUNTS_PER_OUTPUT_REV; // Calculate distance based on counts
-
-        lastTimeRPM = currentTime;
-        ticks = 0; // Reset tick count after RPM calculation
-
-        if (deltaTimeMinutes > 0) {
-            return deltaDistanceMeters / deltaTimeMinutes; // RPM = distance / time
-        } else {
-            return 0.0; // Avoid division by zero
+        if (elapsedMs == 0) {
+            return 0.0f;
         }
+
+        float deltaTimeMinutes = elapsedMs / 60000.0f;
+        float revolutions = currentTicks / static_cast<float>(COUNTS_PER_OUTPUT_REV);
+        return revolutions / deltaTimeMinutes;
     }
 
     /// @brief Calculate the speed of the wheel in kilometers per hour based on the tick count and wheel circumference.
     /// @return Speed in KPH (kilometers per hour)
     float getSpeedKPH() {
-        noInterrupts();
-        int32_t currentTicks = ticks;
-        interrupts();
+        int32_t currentTicks;
+        unsigned long elapsedMs;
+        getSnapshot(currentTicks, elapsedMs);
 
-        unsigned long currentTime = millis();
-        float deltaTimeHours = (currentTime - lastTimeRPM) / 3600000.0; // Convert ms to hours
-        float deltaDistanceMeters = (currentTicks * WHEEL_CIRCUMFERENCE_METERS) / COUNTS_PER_OUTPUT_REV; // Calculate distance based on counts
-        float deltaDistanceKM = deltaDistanceMeters / 1000.0; // Convert meters to kilometers
-
-        lastTimeRPM = currentTime;
-        ticks = 0; // Reset tick count after speed calculation
-
-        if (deltaTimeHours > 0) {
-            return deltaDistanceKM / deltaTimeHours; // Speed in KPH = distance / time
-        } else {
-            return 0.0; // Avoid division by zero
+        if (elapsedMs == 0) {
+            return 0.0f;
         }
+
+        float deltaTimeHours = elapsedMs / 3600000.0f;
+        float deltaDistanceMeters = (currentTicks * WHEEL_CIRCUMFERENCE_METERS) / COUNTS_PER_OUTPUT_REV;
+        float deltaDistanceKM = deltaDistanceMeters / 1000.0f;
+        return deltaDistanceKM / deltaTimeHours;
     }
 
     /// @brief Calculate the distance traveled by the wheel in millimeters based on the tick count and wheel circumference.
     /// @return Distance in millimeters
-    float getDistanceMilimeters() {
+    float getDistanceMillimeters() {
         noInterrupts();
         int32_t currentTicks = ticks;
         interrupts();
-        float deltaDistanceMillimeters = (currentTicks * WHEEL_CIRCUMFERENCE_MILLIMETERS) / COUNTS_PER_OUTPUT_REV; // Calculate distance based on counts
-        ticks = 0; // Reset tick count after distance calculation
-        return deltaDistanceMillimeters;
-        /*float deltaDistanceMeters = (currentTicks * WHEEL_CIRCUMFERENCE_METERS) / COUNTS_PER_OUTPUT_REV; // Calculate distance based on counts
-        float deltaDistanceMillimeters = deltaDistanceMeters * 1000.0; // Convert meters to millimeters
-        ticks = 0; // Reset tick count after distance calculation
-        return deltaDistanceMillimeters;*/
+        return (currentTicks * WHEEL_CIRCUMFERENCE_MILLIMETERS) / COUNTS_PER_OUTPUT_REV;
+    }
+
+    /// @brief Backward-compatible typo alias for getDistanceMillimeters.
+    /// @return Distance in millimeters
+    float getDistanceMilimeters() {
+        return getDistanceMillimeters();
     }
 
     /// @brief Calculate the distance traveled by the wheel in centimeters based on the tick count and wheel circumference.
@@ -152,17 +142,23 @@ public:
         noInterrupts();
         int32_t currentTicks = ticks;
         interrupts();
-        float deltaDistanceCentimeters = (currentTicks * WHEEL_CIRCUMFERENCE_MILLIMETERS) / COUNTS_PER_OUTPUT_REV / 10.0; // Calculate distance in centimeters
-        ticks = 0; // Reset tick count after distance calculation
-        return deltaDistanceCentimeters;
+        return (currentTicks * WHEEL_CIRCUMFERENCE_MILLIMETERS) / COUNTS_PER_OUTPUT_REV / 10.0f;
     }
 
 
 private:
+    void getSnapshot(int32_t &outTicks, unsigned long &outElapsedMs) {
+        noInterrupts();
+        const unsigned long nowMs = millis();
+        outTicks = ticks;
+        outElapsedMs = nowMs - lastResetTimeMs;
+        interrupts();
+    }
+
     uint8_t pinA, pinB;
     volatile int32_t ticks;         ///< Quadrature tick counter (ISR-written)
     volatile uint8_t lastEncoded;   ///< Previous 2-bit encoder state (A<<1 | B)
-    unsigned long lastTimeRPM;    ///< Timestamp of last RPM calculation (ms)
+    unsigned long lastResetTimeMs;   ///< Timestamp of last reset/sampling baseline (ms)
 
 };
 
