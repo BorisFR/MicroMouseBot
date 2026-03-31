@@ -71,6 +71,11 @@ public:
 
         theMap.setup();
         theCar.setup();
+        robotState = RobotState::STATE_INIT;
+        robotStateTimer = 0;
+        navControlTimer = 0;
+        navWaypoint.valid = false;
+        activeMotionCommand = MotionCommand::CMD_STOP;
         syncPoseToInternalState();
         if (!SIMULATION_MODE_ENABLED)
         {
@@ -128,6 +133,31 @@ private:
         SCENARIO_SPIN
     };
 
+    enum class RobotState : uint8_t
+    {
+        STATE_INIT,
+        STATE_IDLE,
+        STATE_MAPPING,
+        STATE_NAVIGATE,
+        STATE_ERROR
+    };
+
+    enum class MotionCommand : uint8_t
+    {
+        CMD_STOP,
+        CMD_FORWARD,
+        CMD_BACKWARD,
+        CMD_TURN_LEFT,
+        CMD_TURN_RIGHT
+    };
+
+    struct Waypoint
+    {
+        uint16_t x = 0;
+        uint16_t y = 0;
+        bool valid = false;
+    };
+
     // doit être ajusté au robot réel (entraxe roue-gauche ↔ roue-droite).
     // Un entraxe plus grand rendra la rotation plus lente mais plus précise, tandis qu'un entraxe plus petit rendra la rotation plus rapide mais moins précise.
     static constexpr float WHEEL_BASE_CM = 8.0f; // Distance between the centers of the two wheels
@@ -152,9 +182,12 @@ private:
 
     static constexpr bool ENCODER_TELEMETRY_ENABLED = false; // Set to true to enable periodic telemetry of encoder ticks, RPM, and speed for debugging purposes
     static constexpr bool POSE_TELEMETRY_ENABLED = false; // Set to true to enable periodic telemetry of the robot's pose (x, y, theta) for debugging purposes. This can help verify that the pose estimation is working correctly and that the robot is moving as expected.
+    static constexpr bool AUTONOMOUS_NAV_ENABLED = true;
 
     static constexpr uint32_t SENSOR_INTERVAL_MS = 10; // 100 Hz sensor update rate
     static constexpr uint32_t UI_INTERVAL_MS = 500;
+    static constexpr uint32_t NAV_CONTROL_INTERVAL_MS = 80;
+    static constexpr uint32_t NAV_WARMUP_MS = 1200;
     static constexpr uint32_t ODOMETRY_INTERVAL_MS = 20;
     static constexpr uint32_t POSE_TELEMETRY_INTERVAL_MS = 200;
     static constexpr uint32_t SIMULATION_SENSOR_INTERVAL_MS = 50;
@@ -163,6 +196,13 @@ private:
     static constexpr float SIM_HEADING_WOBBLE_DEG = 1.2f;
     static constexpr uint16_t SIM_MAX_DISTANCE_CM = 200;
     static constexpr uint32_t COMMAND_REFRESH_INTERVAL_MS = 100;
+    static constexpr uint8_t NAV_FORWARD_SPEED = 110;
+    static constexpr uint8_t NAV_TURN_SPEED = 95;
+    static constexpr uint16_t NAV_FRONT_STOP_DISTANCE_CM = 14;
+    static constexpr uint16_t NAV_FRONT_SLOW_DISTANCE_CM = 24;
+    static constexpr uint16_t NAV_REPLAN_DISTANCE_CM = 28;
+    static constexpr uint16_t NAV_WAYPOINT_REACHED_CM = 8;
+    static constexpr float NAV_TURN_HEADING_ERR_DEG = 16.0f;
     static constexpr uint32_t ENCODER_TELEMETRY_10_MS = 10;
     static constexpr uint32_t ENCODER_TELEMETRY_50_MS = 50;
     static constexpr uint32_t ENCODER_TELEMETRY_100_MS = 100;
@@ -183,6 +223,8 @@ private:
     elapsedMillis simulationSensorTimer;
     elapsedMillis commandRefreshTimer;
     elapsedMillis motionStateTimer;
+    elapsedMillis robotStateTimer;
+    elapsedMillis navControlTimer;
     elapsedMillis encoderTelemetryTimer10;
     elapsedMillis encoderTelemetryTimer50;
     elapsedMillis encoderTelemetryTimer100;
@@ -205,6 +247,9 @@ private:
     int32_t odometryLeftPrevTicks = 0;
     int32_t odometryRightPrevTicks = 0;
     MotionSelfTestState motionSelfTestState = MotionSelfTestState::STATE_DISABLED;
+    RobotState robotState = RobotState::STATE_INIT;
+    MotionCommand activeMotionCommand = MotionCommand::CMD_STOP;
+    Waypoint navWaypoint;
     unsigned long simulationStartMs = 0;
 
     static void sensorTaskEntry(void *arg)
@@ -314,7 +359,10 @@ private:
     void tickMotionCommandSource()
     {
         if (motionSelfTestState == MotionSelfTestState::STATE_DISABLED || motionSelfTestState == MotionSelfTestState::STATE_COMPLETE)
+        {
+            tickRobotController();
             return;
+        }
 
         if (commandRefreshTimer >= COMMAND_REFRESH_INTERVAL_MS)
         {
@@ -355,18 +403,18 @@ private:
         switch (motionSelfTestState)
         {
         case MotionSelfTestState::STATE_FORWARD:
-            theCar.moveForwardSpeed(SELF_TEST_SPEED);
+            issueForward(SELF_TEST_SPEED);
             break;
         case MotionSelfTestState::STATE_TURN_LEFT:
-            theCar.turnLeftSpeed(SELF_TEST_SPEED);
+            issueTurnLeft(SELF_TEST_SPEED);
             break;
         case MotionSelfTestState::STATE_BACKWARD:
-            theCar.moveBackwardSpeed(SELF_TEST_SPEED);
+            issueBackward(SELF_TEST_SPEED);
             break;
         case MotionSelfTestState::STATE_STOP_AFTER_FORWARD:
         case MotionSelfTestState::STATE_STOP_AFTER_TURN:
         case MotionSelfTestState::STATE_COMPLETE:
-            theCar.stop();
+            issueStop();
             break;
         case MotionSelfTestState::STATE_DISABLED:
             break;
@@ -381,12 +429,194 @@ private:
 
         if (nextState == MotionSelfTestState::STATE_COMPLETE)
         {
-            theCar.stop();
+            issueStop();
             Serial.println("SELFTEST motion complete");
             return;
         }
 
         refreshMotionCommand();
+    }
+
+    void issueForward(uint8_t speed)
+    {
+        theCar.moveForwardSpeed(speed);
+        activeMotionCommand = MotionCommand::CMD_FORWARD;
+    }
+
+    void issueBackward(uint8_t speed)
+    {
+        theCar.moveBackwardSpeed(speed);
+        activeMotionCommand = MotionCommand::CMD_BACKWARD;
+    }
+
+    void issueTurnLeft(uint8_t speed)
+    {
+        theCar.turnLeftSpeed(speed);
+        activeMotionCommand = MotionCommand::CMD_TURN_LEFT;
+    }
+
+    void issueTurnRight(uint8_t speed)
+    {
+        theCar.turnRightSpeed(speed);
+        activeMotionCommand = MotionCommand::CMD_TURN_RIGHT;
+    }
+
+    void issueStop()
+    {
+        theCar.stop();
+        activeMotionCommand = MotionCommand::CMD_STOP;
+    }
+
+    void tickRobotController()
+    {
+        if (!AUTONOMOUS_NAV_ENABLED)
+            return;
+
+        updateRobotState();
+
+        if (robotState == RobotState::STATE_ERROR)
+        {
+            issueStop();
+            return;
+        }
+
+        if (robotState != RobotState::STATE_NAVIGATE)
+        {
+            issueStop();
+            return;
+        }
+
+        if (navControlTimer < NAV_CONTROL_INTERVAL_MS)
+            return;
+        navControlTimer = 0;
+
+        runNavigationController();
+    }
+
+    void updateRobotState()
+    {
+        switch (robotState)
+        {
+        case RobotState::STATE_INIT:
+            if (hasFrame)
+                transitionRobotState(RobotState::STATE_MAPPING);
+            break;
+        case RobotState::STATE_MAPPING:
+            if (!hasFrame)
+            {
+                transitionRobotState(RobotState::STATE_ERROR);
+                break;
+            }
+            if (robotStateTimer >= NAV_WARMUP_MS)
+                transitionRobotState(RobotState::STATE_NAVIGATE);
+            break;
+        case RobotState::STATE_IDLE:
+            break;
+        case RobotState::STATE_NAVIGATE:
+            if (!hasFrame)
+                transitionRobotState(RobotState::STATE_ERROR);
+            break;
+        case RobotState::STATE_ERROR:
+            break;
+        }
+    }
+
+    void transitionRobotState(RobotState nextState)
+    {
+        robotState = nextState;
+        robotStateTimer = 0;
+        if (nextState == RobotState::STATE_NAVIGATE)
+            navWaypoint.valid = false;
+    }
+
+    void runNavigationController()
+    {
+        const uint16_t front = lastFrame.distances[CAR_SENSOR_FRONT_INDEX];
+        const uint16_t left = lastFrame.distances[CAR_SENSOR_LEFT_INDEX];
+        const uint16_t right = lastFrame.distances[CAR_SENSOR_RIGHT_INDEX];
+
+        if (front <= NAV_FRONT_STOP_DISTANCE_CM)
+        {
+            navWaypoint.valid = false;
+            if (left >= right)
+                issueTurnLeft(NAV_TURN_SPEED);
+            else
+                issueTurnRight(NAV_TURN_SPEED);
+            return;
+        }
+
+        if (!navWaypoint.valid || isWaypointReached() || front < NAV_REPLAN_DISTANCE_CM)
+            planLocalWaypoint();
+
+        if (!navWaypoint.valid)
+        {
+            issueStop();
+            return;
+        }
+
+        const float headingToWaypoint = getHeadingToWaypointDeg(navWaypoint);
+        const float headingError = normalizeDeg(headingToWaypoint - pose.theta);
+        const float absHeadingError = fabsf(headingError);
+
+        if (absHeadingError > NAV_TURN_HEADING_ERR_DEG)
+        {
+            if (headingError > 0.0f)
+                issueTurnLeft(NAV_TURN_SPEED);
+            else
+                issueTurnRight(NAV_TURN_SPEED);
+            return;
+        }
+
+        const uint8_t commandedSpeed = (front < NAV_FRONT_SLOW_DISTANCE_CM) ? static_cast<uint8_t>(NAV_FORWARD_SPEED * 0.65f) : NAV_FORWARD_SPEED;
+        issueForward(commandedSpeed);
+    }
+
+    void planLocalWaypoint()
+    {
+        const uint16_t front = lastFrame.distances[CAR_SENSOR_FRONT_INDEX];
+        const uint16_t left = lastFrame.distances[CAR_SENSOR_LEFT_INDEX];
+        const uint16_t right = lastFrame.distances[CAR_SENSOR_RIGHT_INDEX];
+
+        float targetHeadingDeg = pose.theta;
+        uint16_t travelCm = front;
+
+        if (front < NAV_REPLAN_DISTANCE_CM)
+        {
+            targetHeadingDeg = (left >= right) ? normalizeDeg(pose.theta + 90.0f) : normalizeDeg(pose.theta - 90.0f);
+            travelCm = (left >= right) ? left : right;
+        }
+
+        if (travelCm <= NAV_FRONT_STOP_DISTANCE_CM)
+        {
+            navWaypoint.valid = false;
+            return;
+        }
+
+        const float boundedTravelCm = constrain(static_cast<float>(travelCm) * 0.6f, 12.0f, 60.0f);
+        const float headingRad = degToRad(targetHeadingDeg);
+        const float targetX = poseXcm + boundedTravelCm * cosf(headingRad);
+        const float targetY = poseYcm + boundedTravelCm * sinf(headingRad);
+
+        navWaypoint.x = clampToMapAxis(targetX, MAP_WIDTH);
+        navWaypoint.y = clampToMapAxis(targetY, MAP_HEIGHT);
+        navWaypoint.valid = true;
+    }
+
+    bool isWaypointReached() const
+    {
+        if (!navWaypoint.valid)
+            return true;
+        const float dx = static_cast<float>(navWaypoint.x) - poseXcm;
+        const float dy = static_cast<float>(navWaypoint.y) - poseYcm;
+        const float distanceSq = dx * dx + dy * dy;
+        return distanceSq <= (NAV_WAYPOINT_REACHED_CM * NAV_WAYPOINT_REACHED_CM);
+    }
+
+    float getHeadingToWaypointDeg(const Waypoint &waypoint) const
+    {
+        const float dx = static_cast<float>(waypoint.x) - poseXcm;
+        const float dy = static_cast<float>(waypoint.y) - poseYcm;
+        return normalizeDeg(radToDeg(atan2f(dy, dx)));
     }
 
     void tickOdometry()
@@ -492,21 +722,21 @@ private:
             yawSpeedDegS = SIM_TURN_RATE_DEG_S;
             break;
         case SimulationScenario::SCENARIO_SELFTEST:
-            switch (motionSelfTestState)
+            switch (activeMotionCommand)
             {
-            case MotionSelfTestState::STATE_FORWARD:
+            case MotionCommand::CMD_FORWARD:
                 linearSpeedCmS = SIM_LINEAR_SPEED_CM_S;
                 break;
-            case MotionSelfTestState::STATE_BACKWARD:
+            case MotionCommand::CMD_BACKWARD:
                 linearSpeedCmS = -SIM_LINEAR_SPEED_CM_S;
                 break;
-            case MotionSelfTestState::STATE_TURN_LEFT:
+            case MotionCommand::CMD_TURN_LEFT:
                 yawSpeedDegS = SIM_TURN_RATE_DEG_S;
                 break;
-            case MotionSelfTestState::STATE_STOP_AFTER_FORWARD:
-            case MotionSelfTestState::STATE_STOP_AFTER_TURN:
-            case MotionSelfTestState::STATE_COMPLETE:
-            case MotionSelfTestState::STATE_DISABLED:
+            case MotionCommand::CMD_TURN_RIGHT:
+                yawSpeedDegS = -SIM_TURN_RATE_DEG_S;
+                break;
+            case MotionCommand::CMD_STOP:
                 break;
             }
             break;

@@ -39,9 +39,10 @@
 4. [DONE] Add a lightweight software simulation path for repeatable validation without robot hardware.
 
 ## Phase 4 - Autonomous navigation
-1. Add robot state machine: INIT, IDLE, MAPPING, NAVIGATE, ERROR.
-2. Implement first motion controller (heading/forward + emergency stop).
-3. Add progressive planner: local waypoint first, then flood-fill/A* for maze solving.
+1. [DONE] Add robot state machine: INIT, IDLE, MAPPING, NAVIGATE, ERROR.
+2. [DONE] Implement first motion controller (heading/forward + emergency stop).
+3. [DONE] Add progressive planner (local waypoint).
+4. [NEXT] Extend planner to flood-fill/A* once hardware and map confidence are validated.
 
 ## Verification checklist
 1. Build after each phase (PlatformIO).
