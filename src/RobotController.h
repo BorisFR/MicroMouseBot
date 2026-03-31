@@ -23,49 +23,18 @@ public:
         : theCar(carRef), poseX(poseXRef), poseY(poseYRef), poseTheta(poseThetaRef) {}
 
     /// Initialize controller state on robot startup.
-    void setup()
-    {
-        robotState = RobotState::STATE_INIT;
-        robotStateTimer = 0;
-        navControlTimer = 0;
-        navWaypoint.valid = false;
-        activeMotionCommand = MotionCommand::CMD_STOP;
-    }
+    void setup();
 
     /// Main control loop. Call from App::loop() with sensor frame.
     /// @param hasFrame True if fresh sensor data available
     /// @param frame Latest sensor readings (distances, IMU heading)
-    void tick(bool hasFrame, const AllSensors::SensorFrame &frame)
-    {
-        if (!AUTONOMOUS_NAV_ENABLED)
-            return;
-
-        updateRobotState(hasFrame);
-
-        if (robotState == RobotState::STATE_ERROR)
-        {
-            issueStop();
-            return;
-        }
-
-        if (robotState != RobotState::STATE_NAVIGATE)
-        {
-            issueStop();
-            return;
-        }
-
-        if (navControlTimer < NAV_CONTROL_INTERVAL_MS)
-            return;
-        navControlTimer = 0;
-
-        runNavigationController(frame);
-    }
+    void tick(bool hasFrame, const AllSensors::SensorFrame &frame);
 
     /// @return Current robot state (INIT, MAPPING, NAVIGATE, ERROR, IDLE)
-    RobotState getState() const { return robotState; }
+    RobotState getState() const;
 
     /// @return Last issued motion command (used by App for simulation sync)
-    MotionCommand getActiveCommand() const { return activeMotionCommand; }
+    MotionCommand getActiveCommand() const;
 
 private:
     // ==================== Navigation Configuration ====================
@@ -95,233 +64,53 @@ private:
 
     // ==================== Motor Command Execution ====================
 
-    void issueForward(uint8_t speed)
-    {
-        theCar.moveForwardSpeed(speed);
-        activeMotionCommand = MotionCommand::CMD_FORWARD;
-    }
+    void issueForward(uint8_t speed);
 
-    void issueBackward(uint8_t speed)
-    {
-        theCar.moveBackwardSpeed(speed);
-        activeMotionCommand = MotionCommand::CMD_BACKWARD;
-    }
+    void issueBackward(uint8_t speed);
 
-    void issueTurnLeft(uint8_t speed)
-    {
-        theCar.turnLeftSpeed(speed);
-        activeMotionCommand = MotionCommand::CMD_TURN_LEFT;
-    }
+    void issueTurnLeft(uint8_t speed);
 
-    void issueTurnRight(uint8_t speed)
-    {
-        theCar.turnRightSpeed(speed);
-        activeMotionCommand = MotionCommand::CMD_TURN_RIGHT;
-    }
+    void issueTurnRight(uint8_t speed);
 
-    void issueStop()
-    {
-        theCar.stop();
-        activeMotionCommand = MotionCommand::CMD_STOP;
-    }
+    void issueStop();
 
     // ==================== State Machine ====================
 
     /// Update robot state based on sensor availability and timer thresholds.
-    void updateRobotState(bool hasFrame)
-    {
-        switch (robotState)
-        {
-        case RobotState::STATE_INIT:
-            // Transition once first sensor frame arrives
-            if (hasFrame)
-                transitionRobotState(RobotState::STATE_MAPPING);
-            break;
-
-        case RobotState::STATE_MAPPING:
-            // Monitor sensor health during warmup period
-            if (!hasFrame)
-            {
-                transitionRobotState(RobotState::STATE_ERROR);
-                break;
-            }
-            // Transition to navigation after warmup timeout
-            if (robotStateTimer >= NAV_WARMUP_MS)
-                transitionRobotState(RobotState::STATE_NAVIGATE);
-            break;
-
-        case RobotState::STATE_IDLE:
-            // Idle state (unused, but valid per state machine)
-            break;
-
-        case RobotState::STATE_NAVIGATE:
-            // Monitor sensor health; transition to error if frame lost
-            if (!hasFrame)
-                transitionRobotState(RobotState::STATE_ERROR);
-            break;
-
-        case RobotState::STATE_ERROR:
-            // Error is terminal; requires manual reset
-            break;
-        }
-    }
+    void updateRobotState(bool hasFrame);
 
     /// Perform state transition with reset of local timers.
-    void transitionRobotState(RobotState nextState)
-    {
-        robotState = nextState;
-        robotStateTimer = 0;
-        if (nextState == RobotState::STATE_NAVIGATE)
-            navWaypoint.valid = false;  // Force initial waypoint plan
-    }
+    void transitionRobotState(RobotState nextState);
 
     // ==================== Navigation Controller ====================
 
     /// Main navigation loop: update target waypoint, heading control, obstacle avoidance.
-    void runNavigationController(const AllSensors::SensorFrame &frame)
-    {
-        const uint16_t front = frame.distances[CAR_SENSOR_FRONT_INDEX];
-        const uint16_t left = frame.distances[CAR_SENSOR_LEFT_INDEX];
-        const uint16_t right = frame.distances[CAR_SENSOR_RIGHT_INDEX];
-
-        // ---- Obstacle Stop Logic ----
-        if (front <= NAV_FRONT_STOP_DISTANCE_CM)
-        {
-            navWaypoint.valid = false;
-            // Turn toward side with more space
-            if (left >= right)
-                issueTurnLeft(NAV_TURN_SPEED);
-            else
-                issueTurnRight(NAV_TURN_SPEED);
-            return;
-        }
-
-        // ---- Waypoint Planning ----
-        if (!navWaypoint.valid || isWaypointReached() || front < NAV_REPLAN_DISTANCE_CM)
-            planLocalWaypoint(frame);
-
-        if (!navWaypoint.valid)
-        {
-            issueStop();
-            return;
-        }
-
-        // ---- Heading Control ----
-        const float headingToWaypoint = getHeadingToWaypointDeg(navWaypoint);
-        const float headingError = normalizeDeg(headingToWaypoint - poseTheta);
-        const float absHeadingError = fabsf(headingError);
-
-        if (absHeadingError > NAV_TURN_HEADING_ERR_DEG)
-        {
-            // Turn toward desired heading
-            if (headingError > 0.0f)
-                issueTurnLeft(NAV_TURN_SPEED);
-            else
-                issueTurnRight(NAV_TURN_SPEED);
-            return;
-        }
-
-        // ---- Forward Motion with Speed Modulation ----
-        const uint8_t commandedSpeed = (front < NAV_FRONT_SLOW_DISTANCE_CM) 
-            ? static_cast<uint8_t>(NAV_FORWARD_SPEED * 0.65f) 
-            : NAV_FORWARD_SPEED;
-        issueForward(commandedSpeed);
-    }
+    void runNavigationController(const AllSensors::SensorFrame &frame);
 
     /// Plan next local waypoint based on sensor readings and current pose.
     /// Considers front distance, side clearances, and map boundaries.
-    void planLocalWaypoint(const AllSensors::SensorFrame &frame)
-    {
-        const uint16_t front = frame.distances[CAR_SENSOR_FRONT_INDEX];
-        const uint16_t left = frame.distances[CAR_SENSOR_LEFT_INDEX];
-        const uint16_t right = frame.distances[CAR_SENSOR_RIGHT_INDEX];
-
-        // Default: continue forward
-        float targetHeadingDeg = poseTheta;
-        uint16_t travelCm = front;
-
-        // If front blocked, redirect toward side with more space
-        if (front < NAV_REPLAN_DISTANCE_CM)
-        {
-            targetHeadingDeg = (left >= right) 
-                ? normalizeDeg(poseTheta + 90.0f) 
-                : normalizeDeg(poseTheta - 90.0f);
-            travelCm = (left >= right) ? left : right;
-        }
-
-        // Cannot plan if no clear path
-        if (travelCm <= NAV_FRONT_STOP_DISTANCE_CM)
-        {
-            navWaypoint.valid = false;
-            return;
-        }
-
-        // Plan waypoint at ~60% of available distance (safety margin), clamped to [12, 60] cm
-        const float boundedTravelCm = constrain(static_cast<float>(travelCm) * 0.6f, 12.0f, 60.0f);
-        const float headingRad = degToRad(targetHeadingDeg);
-        const float targetX = poseX + boundedTravelCm * cosf(headingRad);
-        const float targetY = poseY + boundedTravelCm * sinf(headingRad);
-
-        // Clamp to map boundaries
-        navWaypoint.x = clampToMapAxis(targetX, MAP_WIDTH);
-        navWaypoint.y = clampToMapAxis(targetY, MAP_HEIGHT);
-        navWaypoint.valid = true;
-    }
+    void planLocalWaypoint(const AllSensors::SensorFrame &frame);
 
     /// Check if current position is within acceptance radius of target waypoint.
-    bool isWaypointReached() const
-    {
-        if (!navWaypoint.valid)
-            return true;
-        const float dx = static_cast<float>(navWaypoint.x) - poseX;
-        const float dy = static_cast<float>(navWaypoint.y) - poseY;
-        const float distanceSq = dx * dx + dy * dy;
-        return distanceSq <= (NAV_WAYPOINT_REACHED_CM * NAV_WAYPOINT_REACHED_CM);
-    }
+    bool isWaypointReached() const;
 
     /// Calculate absolute heading (degrees) from current pose to waypoint.
-    float getHeadingToWaypointDeg(const Waypoint &waypoint) const
-    {
-        const float dx = static_cast<float>(waypoint.x) - poseX;
-        const float dy = static_cast<float>(waypoint.y) - poseY;
-        return normalizeDeg(radToDeg(atan2f(dy, dx)));
-    }
+    float getHeadingToWaypointDeg(const Waypoint &waypoint) const;
 
     // ==================== Helper Functions ====================
     // (Duplicated from App.h for independence; not via shared header to avoid over-engineering)
 
     /// Normalize angle to [-180, 180) degrees.
-    static float normalizeDeg(float angleDeg)
-    {
-        while (angleDeg <= -180.0f)
-            angleDeg += 360.0f;
-        while (angleDeg > 180.0f)
-            angleDeg -= 360.0f;
-        return angleDeg;
-    }
+    static float normalizeDeg(float angleDeg);
 
     /// Convert degrees to radians.
-    static float degToRad(float deg)
-    {
-        return deg * (PI / 180.0f);
-    }
+    static float degToRad(float deg);
 
     /// Convert radians to degrees.
-    static float radToDeg(float rad)
-    {
-        return rad * (180.0f / PI);
-    }
+    static float radToDeg(float rad);
 
     /// Clamp value to map axis, ensuring it stays within [0, maxCm).
-    static uint16_t clampToMapAxis(float valueCm, uint16_t maxCm)
-    {
-        if (valueCm < 0.0f)
-            return 0;
-        const float maxAxis = static_cast<float>(maxCm - 1);
-        if (valueCm > maxAxis)
-            return static_cast<uint16_t>(maxAxis);
-        return static_cast<uint16_t>(valueCm);
-    }
+    static uint16_t clampToMapAxis(float valueCm, uint16_t maxCm);
 };
 
 #endif // ROBOT_CONTROLLER_H

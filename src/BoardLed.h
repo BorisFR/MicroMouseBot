@@ -9,80 +9,31 @@
 class BoardLed
 {
 public:
-    BoardLed() {}
+    BoardLed();
 
-    ~BoardLed() { myTrace.println("💡 unloaded"); }
+    ~BoardLed();
 
-    void setup()
-    {
-        myTrace.println("💡 setup");
-        FastLED.addLeds<NEOPIXEL, LED_RGB_PIN>(pixel, LED_RGB_NUMBER);
-        FastLED.setBrightness(LED_RGB_BRIGHTNESS);
-        pixel[0] = CRGB::Red;
-        FastLED.show();
-    }
+    void setup();
 
-    void loop()
-    {
-        if (delayTimer > BOARD_LED_DELAY)
-        {
-            delayTimer = delayTimer - BOARD_LED_DELAY;
-        }
-    }
+    void loop();
 
-    void setColor(uint8_t r, uint8_t g, uint8_t b)
-    {
-        pixel[0] = CRGB(r, g, b);
-        FastLED.show();
-    }
+    void setColor(uint8_t r, uint8_t g, uint8_t b);
 
-    void setColorBlack()
-    {
-        pixel[0] = CRGB::Black;
-        FastLED.show();
-    }
+    void setColorBlack();
 
-    void setColorWhite()
-    {
-        pixel[0] = CRGB::White;
-        FastLED.show();
-    }
+    void setColorWhite();
 
-    void setColorRed()
-    {
-        pixel[0] = CRGB::Red;
-        FastLED.show();
-    }
+    void setColorRed();
 
-    void setColorGreen()
-    {
-        pixel[0] = CRGB::Green;
-        FastLED.show();
-    }
+    void setColorGreen();
 
-    void setColorBlue()
-    {
-        pixel[0] = CRGB::Blue;
-        FastLED.show();
-    }
+    void setColorBlue();
 
-    void setColorYellow()
-    {
-        pixel[0] = CRGB::Yellow;
-        FastLED.show();
-    }
+    void setColorYellow();
 
-    void setColorOrange()
-    {
-        pixel[0] = CRGB::Orange;
-        FastLED.show();
-    }
+    void setColorOrange();
 
-    void setColorCyan()
-    {
-        pixel[0] = CRGB::Cyan;
-        FastLED.show();
-    }
+    void setColorCyan();
 
 private:
     CRGB pixel[LED_RGB_NUMBER];

@@ -6,149 +6,41 @@
 class TheCar
 {
 public:
-    TheCar() {}
+    TheCar();
 
-    ~TheCar() { myTrace.println("🚗 unloaded"); }
+    ~TheCar();
 
-    void setup()
-    {
-        myTrace.println("🚗 setup");
-        // Initialize car hardware here (motors, encoders, etc.)
-        if (pose)
-        {
-            *pose = {9, 9, 0.0f}; // Start at (1, 1) facing right (0 degrees)
-        }
-        stop();
-    }
+    void setup();
 
     void setMotorCallbacks(std::function<void(uint8_t)> forwardCb,
                            std::function<void(uint8_t)> backwardCb,
                            std::function<void(uint8_t)> turnLeftCb,
                            std::function<void(uint8_t)> turnRightCb,
-                           EVENT_CHANGE stopCb)
-    {
-        motorForward = forwardCb;
-        motorBackward = backwardCb;
-        motorTurnLeft = turnLeftCb;
-        motorTurnRight = turnRightCb;
-        motorStop = stopCb;
-    }
+                           EVENT_CHANGE stopCb);
 
-    void setPose(BotPose *poseRef)
-    {
-        pose = poseRef;
-    }
+    void setPose(BotPose *poseRef);
 
-    void loop()
-    {
-        // Fail-safe: if no command is refreshed in time, stop motors.
-        if (isMoving && (millis() - lastCommandMs > commandTimeoutMs))
-        {
-            stop();
-        }
-    }
+    void loop();
 
-    void moveForward(uint16_t distance)
-    {
-        // Temporary bridge: trigger real motor movement while keeping pose math for debug.
-        moveForwardSpeed(defaultCruiseSpeed);
-        if (!pose)
-        {
-            return;
-        }
-        float thetaRad = pose->theta * PI / 180.0f;
-        pose->x += distance * cos(thetaRad);
-        pose->y += distance * sin(thetaRad);
-    }
+    void moveForward(uint16_t distance);
 
-    void moveForwardSpeed(uint8_t speed)
-    {
-        if (motorForward)
-        {
-            motorForward(speed);
-        }
-        currentSpeed = speed;
-        isMoving = true;
-        lastCommandMs = millis();
-    }
+    void moveForwardSpeed(uint8_t speed);
 
-    void moveBackwardSpeed(uint8_t speed)
-    {
-        if (motorBackward)
-        {
-            motorBackward(speed);
-        }
-        currentSpeed = speed;
-        isMoving = true;
-        lastCommandMs = millis();
-    }
+    void moveBackwardSpeed(uint8_t speed);
 
-    void turnLeftSpeed(uint8_t speed)
-    {
-        if (motorTurnLeft)
-        {
-            motorTurnLeft(speed);
-        }
-        currentSpeed = speed;
-        isMoving = true;
-        lastCommandMs = millis();
-    }
+    void turnLeftSpeed(uint8_t speed);
 
-    void turnRightSpeed(uint8_t speed)
-    {
-        if (motorTurnRight)
-        {
-            motorTurnRight(speed);
-        }
-        currentSpeed = speed;
-        isMoving = true;
-        lastCommandMs = millis();
-    }
+    void turnRightSpeed(uint8_t speed);
 
-    void turn(float angle)
-    {
-        // Turn the car by the specified angle (in degrees)
-        // Positive angle for clockwise, negative for counterclockwise
-        // You can use motor encoders to achieve precise turning
-        if (!pose)
-        {
-            return;
-        }
-        pose->theta += angle;
-    }
+    void turn(float angle);
 
-    void stop()
-    {
-        if (motorStop)
-        {
-            motorStop();
-        }
-        currentSpeed = 0.0f;
-        isMoving = false;
-    }
+    void stop();
 
-    void setCommandTimeoutMs(uint32_t timeoutMs)
-    {
-        commandTimeoutMs = timeoutMs;
-    }
+    void setCommandTimeoutMs(uint32_t timeoutMs);
 
-    bool isMotorLinked() const
-    {
-        return static_cast<bool>(motorForward) && static_cast<bool>(motorBackward) &&
-               static_cast<bool>(motorTurnLeft) && static_cast<bool>(motorTurnRight) &&
-               static_cast<bool>(motorStop);
-    }
+    bool isMotorLinked() const;
 
-    void updatePose(uint16_t x, uint16_t y, float theta)
-    {
-        if (!pose)
-        {
-            return;
-        }
-        pose->x = x;
-        pose->y = y;
-        pose->theta = theta;
-    }
+    void updatePose(uint16_t x, uint16_t y, float theta);
 
 private:
     // Add private members for motor control, encoders, etc.

@@ -1,4 +1,4 @@
-#include "WheelEncoder.h"
+﻿#include "WheelEncoder.h"
 
 WheelEncoder *wheelInstance1 = nullptr;
 WheelEncoder *wheelInstance2 = nullptr;

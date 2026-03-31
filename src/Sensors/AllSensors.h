@@ -20,203 +20,53 @@ public:
         float heading;
     };
 
-    AllSensors() {}
+    AllSensors();
 
-    ~AllSensors() { myTrace.println("🕵️ unloaded"); }
+    ~AllSensors();
 
-    void setup()
-    {
-        myTrace.println("🕵️ setup");
-        gpio_num_t sdaPin = static_cast<gpio_num_t>(SENSORS_SDA_PIN);
-        gpio_num_t sclPin = static_cast<gpio_num_t>(SENSORS_SCL_PIN);
-        gpio_set_pull_mode(sdaPin, GPIO_PULLUP_ONLY);
-        gpio_set_pull_mode(sclPin, GPIO_PULLUP_ONLY);
-        vTaskDelay(pdMS_TO_TICKS(2)); // Short delay to allow pull-up resistors to stabilize
-        Wire.begin(SENSORS_SDA_PIN, SENSORS_SCL_PIN);
-        Wire.setClock(SENSORS_I2C_SPEED);
-        vTaskDelay(pdMS_TO_TICKS(2)); // Short delay to allow I2C bus to stabilize
-        esp_log_level_set("i2c.master", ESP_LOG_NONE);
-    }
+    void setup();
 
-    void begin()
-    {
-        hubPCA9548A.setup();
-        if (theCallbackHub)
-            theCallbackHub();
-        if (!hubPCA9548A.isInitialized())
-            return;
-        for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
-        {
-            hubPCA9548A.selectChannel(i);
-            vTaskDelay(pdMS_TO_TICKS(100)); // Short delay to allow channel switching to stabilize
-            sensorVL53L0X[i].setup();
-            if (sensorVL53L0X[i].isInitializedSuccessfully())
-            {
-                myTrace.print("VL53L0X sensor on channel ");
-                myTrace.printDEC(i);
-                myTrace.println(" initialized successfully");
-                sensorVL53L0X[i].eventChangeValue([i, this](uint16_t value)
-                                                  {if (theCallbackSensorWithIndexAndValue)
-                                                        theCallbackSensorWithIndexAndValue(i, value); });
+    void begin();
 
-                sensorVL53L0X[i].eventError([i, this]()
-                                            {if (theCallbackSensorWithIndexAndValue)
-                                                theCallbackSensorWithIndexAndValue(i, 0); });
-            }
-            else
-            {
-                myTrace.print("🚨 VL53L0X sensor on channel ");
-                myTrace.printDEC(i);
-                myTrace.println(" failed to initialize");
-            }
-            if (theCallbackSensorWithIndexAndValue)
-                theCallbackSensorWithIndexAndValue(i, 0); // Call with a default value of 0 to indicate that the sensor is ready and has an initial distance value. This will allow the screen to update the sensor status immediately after initialization.
-        }
+    void loop();
 
-        theCompass.setup();
-        theCompass.eventChangeValue([this](float value)
-                                    { lastHeading = value;
-                                    frameChanged = true;
-                                    if (theCallbackIMU)
-                                        theCallbackIMU(value); });
-        theCompass.eventError([this]()
-                              { myTrace.println("🚨 Compass error detected");
-                                if (theCallbackIMU)
-                                    theCallbackIMU(0); });
-        hubPCA9548A.selectChannel(COMPASS_CHANNEL);
-        theCompass.begin();
+    bool isHubReady();
 
-        doFullScan();
-    }
+    bool hasChanged();
 
-    void loop()
-    {
-        for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
-        {
-            if (!sensorVL53L0X[i].isInErrorState())
-            {
-                hubPCA9548A.selectChannel(i);
-                sensorVL53L0X[i].loop();
-                if (sensorVL53L0X[i].hasChanged())
-                {
-                    changedSensorVL53L0X = true;
-                    frameChanged = true;
-                }
-            }
-        }
-        hubPCA9548A.selectChannel(COMPASS_CHANNEL);
-        theCompass.loop();
-    }
+    bool getLatestFrame(SensorFrame &frame);
 
-    bool isHubReady()
-    {
-        return hubPCA9548A.isInitialized();
-    }
+    uint16_t getLastDistance(uint8_t sensorIndex);
 
-    bool hasChanged()
-    {
-        if (changedSensorVL53L0X)
-        {
-            changedSensorVL53L0X = false;
-            return true;
-        }
-        return false;
-    }
+    bool isSensorInitialized(uint8_t sensorIndex);
 
-    bool getLatestFrame(SensorFrame &frame)
-    {
-        if (!frameChanged)
-        {
-            return false;
-        }
-        frameChanged = false;
-        for (uint8_t i = 0; i < VL53L0X_COUNT; i++)
-        {
-            frame.distances[i] = sensorVL53L0X[i].getLastDistance();
-        }
-        frame.heading = lastHeading;
-        return true;
-    }
+    bool isSensorErrorDetected(uint8_t sensorIndex);
 
-    uint16_t getLastDistance(uint8_t sensorIndex)
-    {
-        if (sensorIndex < VL53L0X_COUNT)
-            return sensorVL53L0X[sensorIndex].getLastDistance();
-        return 0;
-    }
+    void eventHubChange(EVENT_CHANGE callback);
 
-    bool isSensorInitialized(uint8_t sensorIndex)
-    {
-        if (sensorIndex < VL53L0X_COUNT)
-            return sensorVL53L0X[sensorIndex].isInitializedSuccessfully();
-        return false;
-    }
+    void eventSensorWithIndexAndValue(EVENT_CHANGE_WITH_UINT8_UINT16 callback);
 
-    bool isSensorErrorDetected(uint8_t sensorIndex)
-    {
-        if (sensorIndex < VL53L0X_COUNT)
-            return sensorVL53L0X[sensorIndex].isInErrorState();
-        return true;
-    }
+    void eventImuChange(EVENT_CHANGE_WITH_FLOAT callback);
 
-    void eventHubChange(EVENT_CHANGE callback)
-    {
-        theCallbackHub = callback;
-    }
+    bool isIMUinitializedSuccessfully();
 
-    void eventSensorWithIndexAndValue(EVENT_CHANGE_WITH_UINT8_UINT16 callback)
-    {
-        theCallbackSensorWithIndexAndValue = callback;
-    }
+    bool isGyroReady();
 
-    void eventImuChange(EVENT_CHANGE_WITH_FLOAT callback)
-    {
-        theCallbackIMU = callback;
-    }
+    bool isGyroErrorDetected();
 
-    bool isIMUinitializedSuccessfully()
-    {
-        return theCompass.isInitializedSuccessfully();
-    }
+    float getGyroHeading();
 
-    bool isGyroReady() {
-        return theCompass.isLSM6DSInitialized();
-    }
+    bool isMagnetometerReady();
 
-    bool isGyroErrorDetected() {
-        return theCompass.isGyroErrorDetected();
-    }
+    bool isMagnetometerErrorDetected();
 
-    float getGyroHeading() {
-        return theCompass.getPitch(); // For simplicity, we are using the same heading value for both gyro and magnetometer in this example. In a real implementation, you would get the gyro heading from the appropriate sensor reading.
-    }
+    float getMagnetometerHeading();
 
-    bool isMagnetometerReady() {
-        return theCompass.isLIS3MDLInitialized();
-    }
+    bool isIMUErrorDetected();
 
-    bool isMagnetometerErrorDetected() {
-        return theCompass.isMagnetometerErrorDetected();
-    }
+    float getHeading();
 
-    float getMagnetometerHeading() {
-        return theCompass.getRoll(); // For simplicity, we are using the same heading value for both gyro and magnetometer in this example. In a real implementation, you would get the magnetometer heading from the appropriate sensor reading.
-    }
-
-    bool isIMUErrorDetected()
-    {
-        return theCompass.isErrorDetected();
-    }
-
-    float getHeading()
-    {
-        return theCompass.getHeading();
-    }
-
-    bool isIMUCalibrated()
-    {
-        return theCompass.isCalibrationLoaded(); // Using calibration loaded state as a proxy for calibration success for simplicity
-    }
+    bool isIMUCalibrated();
 
 private:
     HubPCA9548A hubPCA9548A;
@@ -229,44 +79,9 @@ private:
     float lastHeading = 0.0f;
     EVENT_CHANGE_WITH_FLOAT theCallbackIMU;
 
-    void doFullScan()
-    {
-        myTrace.println("🕵️  Full Scanning...");
-        for (uint8_t busNumber = 0; busNumber < BUS_TO_SCAN; busNumber++)
-        {
-            myTrace.print("🕵️  Scanning I2C bus ");
-            myTrace.println(busNumber);
-            hubPCA9548A.selectChannel(busNumber);
-            doScan();
-        }
-    }
+    void doFullScan();
 
-    void doScan()
-    {
-        byte error, address;
-        int nDevices = 0;
-        for (address = 1; address < 127; address++)
-        {
-            Wire.beginTransmission(address);
-            error = Wire.endTransmission();
-            if (error == 0)
-            {
-                myTrace.print("🕵️  I2C device found at address 0x");
-                myTrace.printlnHEX(address);
-                nDevices++;
-            }
-            else if (error == 4)
-            {
-                myTrace.print("🕵️  Unknown error at address 0x");
-                myTrace.printlnHEX(address);
-            }
-            vTaskDelay(pdMS_TO_TICKS(2)); // Short delay to allow I2C bus to stabilize between address checks
-        }
-        if (nDevices == 0)
-            myTrace.println("🕵️  No I2C devices found");
-        else
-            myTrace.println("🕵️  Scan complete");
-    }
+    void doScan();
 };
 
 #endif // ALL_SENSORS_H

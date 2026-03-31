@@ -42,7 +42,7 @@ extern MyTrace myTrace;
 #define CAR_SENSOR_TOP_LEFT_DIRECTION 45.0f
 #define CAR_SENSOR_TOP_RIGHT_DIRECTION -45.0f
 
-#include "Sensors/AllSensors.h"
+class AllSensors;
 extern AllSensors allSensors;
 
 // 288*288 cm map, divided into 16*16 cells of 18*18 cm each
@@ -101,10 +101,10 @@ struct BotPose
     float theta; // degrees
 };
 
-#include "TheMap.h"
+class TheMap;
 extern TheMap theMap;
 
-#include "TheCar.h"
+class TheCar;
 extern TheCar theCar;
 
 #endif // GLOBALS_H
