@@ -128,6 +128,14 @@ private:
         SCENARIO_SPIN
     };
 
+    // doit être ajusté au robot réel (entraxe roue-gauche ↔ roue-droite).
+    // Un entraxe plus grand rendra la rotation plus lente mais plus précise, tandis qu'un entraxe plus petit rendra la rotation plus rapide mais moins précise.
+    static constexpr float WHEEL_BASE_CM = 8.0f; // Distance between the centers of the two wheels
+    // peut être réduit (ex. 0.15) si l’IMU est bruitée, ou augmenté (ex. 0.35) si l’odométrie dérive trop vite.
+    // Avec un alpha de 0.25, la direction IMU contribue à 25% de l’estimation finale, tandis que l’odométrie contribue à 75%. Cela permet d’avoir une estimation plus stable que l’IMU seul, tout en corrigeant progressivement les dérives de l’odométrie.
+    static constexpr float IMU_HEADING_BLEND_ALPHA = 0.25f; // Coefficient for blending IMU heading with odometry heading (0.0 = only odometry, 1.0 = only IMU)
+
+
     static constexpr bool MOTION_SELF_TEST_ENABLED = false; // Set to true to enable a self-test sequence of movements (forward, turn, backward) on startup, false to skip self-test
     static constexpr uint32_t SELF_TEST_FORWARD_MS = 1500;
     static constexpr uint32_t SELF_TEST_TURN_MS = 900;
@@ -155,12 +163,6 @@ private:
     static constexpr float SIM_HEADING_WOBBLE_DEG = 1.2f;
     static constexpr uint16_t SIM_MAX_DISTANCE_CM = 200;
     static constexpr uint32_t COMMAND_REFRESH_INTERVAL_MS = 100;
-    // doit être ajusté au robot réel (entraxe roue-gauche ↔ roue-droite).
-    // Un entraxe plus grand rendra la rotation plus lente mais plus précise, tandis qu'un entraxe plus petit rendra la rotation plus rapide mais moins précise.
-    static constexpr float WHEEL_BASE_CM = 8.0f; // Distance between the centers of the two wheels
-    // peut être réduit (ex. 0.15) si l’IMU est bruitée, ou augmenté (ex. 0.35) si l’odométrie dérive trop vite.
-    // Avec un alpha de 0.25, la direction IMU contribue à 25% de l’estimation finale, tandis que l’odométrie contribue à 75%. Cela permet d’avoir une estimation plus stable que l’IMU seul, tout en corrigeant progressivement les dérives de l’odométrie.
-    static constexpr float IMU_HEADING_BLEND_ALPHA = 0.25f; // Coefficient for blending IMU heading with odometry heading (0.0 = only odometry, 1.0 = only IMU)
     static constexpr uint32_t ENCODER_TELEMETRY_10_MS = 10;
     static constexpr uint32_t ENCODER_TELEMETRY_50_MS = 50;
     static constexpr uint32_t ENCODER_TELEMETRY_100_MS = 100;
