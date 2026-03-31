@@ -13,11 +13,12 @@
 #include "TheMap.h"
 #include "TheScreen.h"
 #include "TB6612FNG.h"
+#include "WheelEncoder.h"
 
 class App
 {
 public:
-    App(BoardLed &boardLedRef, TheScreen &screenRef, AllSensors &sensorsRef, TheMap &mapRef, TheCar &carRef, BotPose &poseRef, TB6612FNG &motorDriverRef) : boardLed(boardLedRef), theScreen(screenRef), allSensors(sensorsRef), theMap(mapRef), theCar(carRef), pose(poseRef), motorDriver(motorDriverRef) {}
+    App(BoardLed &boardLedRef, TheScreen &screenRef, AllSensors &sensorsRef, TheMap &mapRef, TheCar &carRef, BotPose &poseRef, TB6612FNG &motorDriverRef, WheelEncoder &wheelEncoderLeftRef, WheelEncoder &wheelEncoderRightRef) : boardLed(boardLedRef), theScreen(screenRef), allSensors(sensorsRef), theMap(mapRef), theCar(carRef), pose(poseRef), motorDriver(motorDriverRef), wheelEncoderLeft(wheelEncoderLeftRef), wheelEncoderRight(wheelEncoderRightRef) {}
 
     void setup()
     {
@@ -48,6 +49,9 @@ public:
 
         allSensors.begin();
         motorDriver.setup(MOTOR_A1_PIN, MOTOR_A2_PIN, MOTOR_B1_PIN, MOTOR_B2_PIN, MOTOR_PWM1_PIN, MOTOR_PWM2_PIN, MOTOR_STANDBY_PIN);
+        wheelEncoderLeft.setup(wheelEncoderLeft, 0, WHEEL_ENCODER_LEFT_A_PIN, WHEEL_ENCODER_LEFT_B_PIN);
+        wheelEncoderRight.setup(wheelEncoderRight, 1, WHEEL_ENCODER_RIGHT_A_PIN, WHEEL_ENCODER_RIGHT_B_PIN);
+
         theMap.setup();
         theCar.setup();
         startSensorTask();
@@ -76,6 +80,8 @@ private:
     TheScreen &theScreen;
     AllSensors &allSensors;
     TB6612FNG &motorDriver;
+    WheelEncoder wheelEncoderLeft;
+    WheelEncoder wheelEncoderRight;
     TheMap &theMap;
     TheCar &theCar;
     BotPose &pose;
