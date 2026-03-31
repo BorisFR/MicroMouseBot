@@ -120,27 +120,42 @@ private:
         STATE_COMPLETE
     };
 
-    static constexpr uint32_t SENSOR_INTERVAL_MS = 10; // 100 Hz sensor update rate
-    static constexpr uint32_t UI_INTERVAL_MS = 500;
-    static constexpr uint32_t ODOMETRY_INTERVAL_MS = 20;
-    static constexpr uint32_t POSE_TELEMETRY_INTERVAL_MS = 200;
-    static constexpr bool SIMULATION_MODE_ENABLED = false;
-    static constexpr bool SIMULATION_AUTORUN_SELFTEST = true;
-    static constexpr uint32_t SIMULATION_SENSOR_INTERVAL_MS = 50;
-    static constexpr float SIM_LINEAR_SPEED_CM_S = 18.0f;
-    static constexpr float SIM_TURN_RATE_DEG_S = 90.0f;
-    static constexpr float SIM_HEADING_WOBBLE_DEG = 1.2f;
-    static constexpr uint16_t SIM_MAX_DISTANCE_CM = 200;
-    static constexpr bool MOTION_SELF_TEST_ENABLED = false;
-    static constexpr uint32_t COMMAND_REFRESH_INTERVAL_MS = 100;
+    enum class SimulationScenario : uint8_t
+    {
+        SCENARIO_SELFTEST,
+        SCENARIO_STRAIGHT,
+        SCENARIO_SQUARE,
+        SCENARIO_SPIN
+    };
+
+    static constexpr bool MOTION_SELF_TEST_ENABLED = false; // Set to true to enable a self-test sequence of movements (forward, turn, backward) on startup, false to skip self-test
     static constexpr uint32_t SELF_TEST_FORWARD_MS = 1500;
     static constexpr uint32_t SELF_TEST_TURN_MS = 900;
     static constexpr uint32_t SELF_TEST_BACKWARD_MS = 1200;
     static constexpr uint32_t SELF_TEST_PAUSE_MS = 500;
     static constexpr uint8_t SELF_TEST_SPEED = 120;
-    static constexpr bool ENCODER_TELEMETRY_ENABLED = false;
-    static constexpr bool POSE_TELEMETRY_ENABLED = true;
-    // doit être ajusté au robot réel (entraxe roue-gauche ↔ roue-droite). 
+
+    static constexpr bool SIMULATION_MODE_ENABLED = true;     // Set to true to enable simulation mode with synthetic sensor data and pose updates, false to use real hardware
+    static constexpr bool SIMULATION_AUTORUN_SELFTEST = true; // If true, the motion self-test will automatically run in simulation mode after 2 seconds
+    static constexpr SimulationScenario SIMULATION_SCENARIO = SimulationScenario::SCENARIO_SELFTEST; // SCENARIO_SQUARE;
+    static constexpr uint32_t SIM_SCENARIO_STRAIGHT_MS = 5000;
+    static constexpr uint32_t SIM_SCENARIO_SQUARE_FORWARD_MS = 2000;
+    static constexpr uint32_t SIM_SCENARIO_SQUARE_TURN_MS = 1000;
+
+    static constexpr bool ENCODER_TELEMETRY_ENABLED = false; // Set to true to enable periodic telemetry of encoder ticks, RPM, and speed for debugging purposes
+    static constexpr bool POSE_TELEMETRY_ENABLED = true; // Set to true to enable periodic telemetry of the robot's pose (x, y, theta) for debugging purposes. This can help verify that the pose estimation is working correctly and that the robot is moving as expected.
+
+    static constexpr uint32_t SENSOR_INTERVAL_MS = 10; // 100 Hz sensor update rate
+    static constexpr uint32_t UI_INTERVAL_MS = 500;
+    static constexpr uint32_t ODOMETRY_INTERVAL_MS = 20;
+    static constexpr uint32_t POSE_TELEMETRY_INTERVAL_MS = 200;
+    static constexpr uint32_t SIMULATION_SENSOR_INTERVAL_MS = 50;
+    static constexpr float SIM_LINEAR_SPEED_CM_S = 18.0f;
+    static constexpr float SIM_TURN_RATE_DEG_S = 90.0f;
+    static constexpr float SIM_HEADING_WOBBLE_DEG = 1.2f;
+    static constexpr uint16_t SIM_MAX_DISTANCE_CM = 200;
+    static constexpr uint32_t COMMAND_REFRESH_INTERVAL_MS = 100;
+    // doit être ajusté au robot réel (entraxe roue-gauche ↔ roue-droite).
     // Un entraxe plus grand rendra la rotation plus lente mais plus précise, tandis qu'un entraxe plus petit rendra la rotation plus rapide mais moins précise.
     static constexpr float WHEEL_BASE_CM = 8.0f; // Distance between the centers of the two wheels
     // peut être réduit (ex. 0.15) si l’IMU est bruitée, ou augmenté (ex. 0.35) si l’odométrie dérive trop vite.
@@ -262,7 +277,10 @@ private:
 
     void initializeMotionSelfTest()
     {
-        const bool enableSelfTest = MOTION_SELF_TEST_ENABLED || (SIMULATION_MODE_ENABLED && SIMULATION_AUTORUN_SELFTEST);
+        const bool simulationWantsSelfTest = SIMULATION_MODE_ENABLED &&
+                                             SIMULATION_SCENARIO == SimulationScenario::SCENARIO_SELFTEST &&
+                                             SIMULATION_AUTORUN_SELFTEST;
+        const bool enableSelfTest = MOTION_SELF_TEST_ENABLED || simulationWantsSelfTest;
         motionSelfTestState = enableSelfTest ? MotionSelfTestState::STATE_FORWARD : MotionSelfTestState::STATE_DISABLED;
         motionStateTimer = 0;
         commandRefreshTimer = 0;
@@ -425,24 +443,7 @@ private:
 
         float linearSpeedCmS = 0.0f;
         float yawSpeedDegS = 0.0f;
-
-        switch (motionSelfTestState)
-        {
-        case MotionSelfTestState::STATE_FORWARD:
-            linearSpeedCmS = SIM_LINEAR_SPEED_CM_S;
-            break;
-        case MotionSelfTestState::STATE_BACKWARD:
-            linearSpeedCmS = -SIM_LINEAR_SPEED_CM_S;
-            break;
-        case MotionSelfTestState::STATE_TURN_LEFT:
-            yawSpeedDegS = SIM_TURN_RATE_DEG_S;
-            break;
-        case MotionSelfTestState::STATE_STOP_AFTER_FORWARD:
-        case MotionSelfTestState::STATE_STOP_AFTER_TURN:
-        case MotionSelfTestState::STATE_COMPLETE:
-        case MotionSelfTestState::STATE_DISABLED:
-            break;
-        }
+        computeSimulationScenarioSpeeds(linearSpeedCmS, yawSpeedDegS);
 
         const float centerDistanceCm = linearSpeedCmS * dtSec;
         const float deltaThetaRad = degToRad(yawSpeedDegS * dtSec);
@@ -457,6 +458,57 @@ private:
             fusedHeadingDeg = blendAnglesDeg(odometryThetaDeg, imuHeadingDeg, IMU_HEADING_BLEND_ALPHA);
 
         updatePoseFromInternalState(fusedHeadingDeg);
+    }
+
+    void computeSimulationScenarioSpeeds(float &linearSpeedCmS, float &yawSpeedDegS) const
+    {
+        linearSpeedCmS = 0.0f;
+        yawSpeedDegS = 0.0f;
+
+        switch (SIMULATION_SCENARIO)
+        {
+        case SimulationScenario::SCENARIO_STRAIGHT:
+        {
+            const unsigned long elapsedMs = millis() - simulationStartMs;
+            if (elapsedMs < SIM_SCENARIO_STRAIGHT_MS)
+                linearSpeedCmS = SIM_LINEAR_SPEED_CM_S;
+            break;
+        }
+        case SimulationScenario::SCENARIO_SQUARE:
+        {
+            const uint32_t segmentMs = SIM_SCENARIO_SQUARE_FORWARD_MS + SIM_SCENARIO_SQUARE_TURN_MS;
+            if (segmentMs == 0)
+                return;
+            const uint32_t segmentPos = static_cast<uint32_t>((millis() - simulationStartMs) % segmentMs);
+            if (segmentPos < SIM_SCENARIO_SQUARE_FORWARD_MS)
+                linearSpeedCmS = SIM_LINEAR_SPEED_CM_S;
+            else
+                yawSpeedDegS = SIM_TURN_RATE_DEG_S;
+            break;
+        }
+        case SimulationScenario::SCENARIO_SPIN:
+            yawSpeedDegS = SIM_TURN_RATE_DEG_S;
+            break;
+        case SimulationScenario::SCENARIO_SELFTEST:
+            switch (motionSelfTestState)
+            {
+            case MotionSelfTestState::STATE_FORWARD:
+                linearSpeedCmS = SIM_LINEAR_SPEED_CM_S;
+                break;
+            case MotionSelfTestState::STATE_BACKWARD:
+                linearSpeedCmS = -SIM_LINEAR_SPEED_CM_S;
+                break;
+            case MotionSelfTestState::STATE_TURN_LEFT:
+                yawSpeedDegS = SIM_TURN_RATE_DEG_S;
+                break;
+            case MotionSelfTestState::STATE_STOP_AFTER_FORWARD:
+            case MotionSelfTestState::STATE_STOP_AFTER_TURN:
+            case MotionSelfTestState::STATE_COMPLETE:
+            case MotionSelfTestState::STATE_DISABLED:
+                break;
+            }
+            break;
+        }
     }
 
     void tickPoseTelemetry()

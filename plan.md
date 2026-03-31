@@ -54,3 +54,4 @@
 ## Notes
 - Keep `App` as orchestrator for now.
 - Move navigation logic to a dedicated `RobotController` module once command loop and odometry are stable.
+- Simulation mode now supports repeatable scenarios (self-test, straight, square, spin) to validate pose/map logic without physical hardware.
