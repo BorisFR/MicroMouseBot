@@ -17,7 +17,12 @@
    - backward speed
    - turn left/right speed
    - stop
-4. [NEXT] Add an explicit command source (state machine or test command path) that calls these APIs continuously.
+4. [DONE] Add an explicit command source with a bench-safe motion self-test state machine in `App`.
+
+## Phase 1 - Result
+- The critical base is now complete.
+- Motion commands are issued from an explicit source instead of relying only on direct method calls.
+- The self-test path is disabled by default for safety and can be enabled for bench validation.
 
 ## Phase 2 - Pose reliability
 1. [DONE] Integrate differential odometry from encoders into pose update (x, y, theta).

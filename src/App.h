@@ -69,6 +69,7 @@ public:
         syncPoseToInternalState();
         wheelEncoderLeft.getTicks(odometryLeftPrevTicks);
         wheelEncoderRight.getTicks(odometryRightPrevTicks);
+        initializeMotionSelfTest();
         startSensorTask();
 
         Serial.printf("Total heap: %d\n", ESP.getHeapSize());
@@ -82,6 +83,7 @@ public:
         boardLed.loop();
         tickEncoderTelemetry();
         pollSensorFrame();
+        tickMotionCommandSource();
         tickOdometry();
         tickPoseTelemetry();
         tickUI();
@@ -91,10 +93,28 @@ public:
     }
 
 private:
+    enum class MotionSelfTestState : uint8_t
+    {
+        STATE_DISABLED,
+        STATE_FORWARD,
+        STATE_STOP_AFTER_FORWARD,
+        STATE_TURN_LEFT,
+        STATE_STOP_AFTER_TURN,
+        STATE_BACKWARD,
+        STATE_COMPLETE
+    };
+
     static constexpr uint32_t SENSOR_INTERVAL_MS = 10; // 100 Hz sensor update rate
     static constexpr uint32_t UI_INTERVAL_MS = 500;
     static constexpr uint32_t ODOMETRY_INTERVAL_MS = 20;
     static constexpr uint32_t POSE_TELEMETRY_INTERVAL_MS = 200;
+    static constexpr bool MOTION_SELF_TEST_ENABLED = false;
+    static constexpr uint32_t COMMAND_REFRESH_INTERVAL_MS = 100;
+    static constexpr uint32_t SELF_TEST_FORWARD_MS = 1500;
+    static constexpr uint32_t SELF_TEST_TURN_MS = 900;
+    static constexpr uint32_t SELF_TEST_BACKWARD_MS = 1200;
+    static constexpr uint32_t SELF_TEST_PAUSE_MS = 500;
+    static constexpr uint8_t SELF_TEST_SPEED = 120;
     static constexpr bool ENCODER_TELEMETRY_ENABLED = false;
     static constexpr bool POSE_TELEMETRY_ENABLED = true;
     // doit être ajusté au robot réel (entraxe roue-gauche ↔ roue-droite). 
@@ -120,6 +140,8 @@ private:
     elapsedMillis uiTimer;
     elapsedMillis odometryTimer;
     elapsedMillis poseTelemetryTimer;
+    elapsedMillis commandRefreshTimer;
+    elapsedMillis motionStateTimer;
     elapsedMillis encoderTelemetryTimer10;
     elapsedMillis encoderTelemetryTimer50;
     elapsedMillis encoderTelemetryTimer100;
@@ -141,6 +163,7 @@ private:
     float poseYcm = 0.0f;
     int32_t odometryLeftPrevTicks = 0;
     int32_t odometryRightPrevTicks = 0;
+    MotionSelfTestState motionSelfTestState = MotionSelfTestState::STATE_DISABLED;
 
     static void sensorTaskEntry(void *arg)
     {
@@ -210,6 +233,93 @@ private:
         theScreen.showGyro(allSensors.isGyroReady(), allSensors.isGyroErrorDetected(), allSensors.getGyroHeading());
         theScreen.showMagnetometer(allSensors.isMagnetometerReady(), allSensors.isMagnetometerErrorDetected(), allSensors.getMagnetometerHeading());
         theScreen.showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), allSensors.isIMUCalibrated(), lastFrame.heading);
+    }
+
+    void initializeMotionSelfTest()
+    {
+        motionSelfTestState = MOTION_SELF_TEST_ENABLED ? MotionSelfTestState::STATE_FORWARD : MotionSelfTestState::STATE_DISABLED;
+        motionStateTimer = 0;
+        commandRefreshTimer = 0;
+        if (MOTION_SELF_TEST_ENABLED)
+            Serial.println("SELFTEST motion enabled");
+    }
+
+    void tickMotionCommandSource()
+    {
+        if (motionSelfTestState == MotionSelfTestState::STATE_DISABLED || motionSelfTestState == MotionSelfTestState::STATE_COMPLETE)
+            return;
+
+        if (commandRefreshTimer >= COMMAND_REFRESH_INTERVAL_MS)
+        {
+            commandRefreshTimer = 0;
+            refreshMotionCommand();
+        }
+
+        switch (motionSelfTestState)
+        {
+        case MotionSelfTestState::STATE_FORWARD:
+            if (motionStateTimer >= SELF_TEST_FORWARD_MS)
+                transitionMotionSelfTest(MotionSelfTestState::STATE_STOP_AFTER_FORWARD);
+            break;
+        case MotionSelfTestState::STATE_STOP_AFTER_FORWARD:
+            if (motionStateTimer >= SELF_TEST_PAUSE_MS)
+                transitionMotionSelfTest(MotionSelfTestState::STATE_TURN_LEFT);
+            break;
+        case MotionSelfTestState::STATE_TURN_LEFT:
+            if (motionStateTimer >= SELF_TEST_TURN_MS)
+                transitionMotionSelfTest(MotionSelfTestState::STATE_STOP_AFTER_TURN);
+            break;
+        case MotionSelfTestState::STATE_STOP_AFTER_TURN:
+            if (motionStateTimer >= SELF_TEST_PAUSE_MS)
+                transitionMotionSelfTest(MotionSelfTestState::STATE_BACKWARD);
+            break;
+        case MotionSelfTestState::STATE_BACKWARD:
+            if (motionStateTimer >= SELF_TEST_BACKWARD_MS)
+                transitionMotionSelfTest(MotionSelfTestState::STATE_COMPLETE);
+            break;
+        case MotionSelfTestState::STATE_COMPLETE:
+        case MotionSelfTestState::STATE_DISABLED:
+            break;
+        }
+    }
+
+    void refreshMotionCommand()
+    {
+        switch (motionSelfTestState)
+        {
+        case MotionSelfTestState::STATE_FORWARD:
+            theCar.moveForwardSpeed(SELF_TEST_SPEED);
+            break;
+        case MotionSelfTestState::STATE_TURN_LEFT:
+            theCar.turnLeftSpeed(SELF_TEST_SPEED);
+            break;
+        case MotionSelfTestState::STATE_BACKWARD:
+            theCar.moveBackwardSpeed(SELF_TEST_SPEED);
+            break;
+        case MotionSelfTestState::STATE_STOP_AFTER_FORWARD:
+        case MotionSelfTestState::STATE_STOP_AFTER_TURN:
+        case MotionSelfTestState::STATE_COMPLETE:
+            theCar.stop();
+            break;
+        case MotionSelfTestState::STATE_DISABLED:
+            break;
+        }
+    }
+
+    void transitionMotionSelfTest(MotionSelfTestState nextState)
+    {
+        motionSelfTestState = nextState;
+        motionStateTimer = 0;
+        commandRefreshTimer = COMMAND_REFRESH_INTERVAL_MS;
+
+        if (nextState == MotionSelfTestState::STATE_COMPLETE)
+        {
+            theCar.stop();
+            Serial.println("SELFTEST motion complete");
+            return;
+        }
+
+        refreshMotionCommand();
     }
 
     void tickOdometry()
