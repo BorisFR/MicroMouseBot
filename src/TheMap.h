@@ -76,8 +76,8 @@ public:
         {
             return;
         }
-        pose->x = x;
-        pose->y = y;
+        pose->x = (x < MAP_WIDTH) ? x : static_cast<uint16_t>(MAP_WIDTH - 1);
+        pose->y = (y < MAP_HEIGHT) ? y : static_cast<uint16_t>(MAP_HEIGHT - 1);
         pose->theta = theta;
     }
 

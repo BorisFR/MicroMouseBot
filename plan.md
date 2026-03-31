@@ -35,7 +35,7 @@
 ## Phase 3 - Sensor robustness and UI integrity
 1. [DONE] Replace IMU/gyro/magnetometer error placeholders with real sensor status propagation.
 2. [DONE] Improve VL53L0X invalid reading handling and recovery policy.
-3. [NEXT] Harden map/screen bounds and coordinate conversions.
+3. [DONE] Harden map/screen bounds and coordinate conversions.
 4. [NEXT] Add a lightweight software simulation path for repeatable validation without robot hardware.
 
 ## Phase 4 - Autonomous navigation

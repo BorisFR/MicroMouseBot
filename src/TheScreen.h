@@ -409,6 +409,9 @@ public:
 
     void forceMapRedraw()
     {
+        if (!map)
+            return;
+
         for (int x = 0; x < CELLS_BY_WIDTH; x++)
         {
             for (int y = 0; y < CELLS_BY_HEIGHT; y++)
@@ -425,6 +428,9 @@ public:
     /// @brief Updates viewport position. If locked, centers on robot. Otherwise keeps manual position.
     void updateViewport()
     {
+        if (mapCellSize <= 0)
+            mapCellSize = MAP_CELL_PIXEL_SIZE;
+
         if (viewportLocked && pose)
         {
             // Auto-center on robot position
@@ -434,6 +440,11 @@ public:
         // Clamp viewport to map boundaries
         int16_t halfViewportWidthCm = (currentWidth() * CELL_SIZE) / (2 * mapCellSize);
         int16_t halfViewportHeightCm = ((currentHeight() - 2 * VIEWPORT_MARGIN) * CELL_SIZE) / (2 * mapCellSize);
+
+        if (halfViewportWidthCm < 1)
+            halfViewportWidthCm = 1;
+        if (halfViewportHeightCm < 1)
+            halfViewportHeightCm = 1;
         
         if (viewportCenterX < halfViewportWidthCm)
             viewportCenterX = halfViewportWidthCm;
@@ -523,8 +534,8 @@ public:
         int16_t centerX = currentWidth() / 2;
         int16_t centerY = viewportHeightPixels / 2 + VIEWPORT_MARGIN;
 
-        int16_t robotScreenX = mapOffsetX + (static_cast<int16_t>(pose->x) - viewportCenterX) * mapCellSize / CELL_SIZE + viewportWidthPixels / 2;
-        int16_t robotScreenY = mapOffsetY + (static_cast<int16_t>(pose->y) - viewportCenterY) * mapCellSize / CELL_SIZE + viewportHeightPixels / 2;
+        int32_t robotScreenX = mapOffsetX + (static_cast<int32_t>(pose->x) - viewportCenterX) * mapCellSize / CELL_SIZE + viewportWidthPixels / 2;
+        int32_t robotScreenY = mapOffsetY + (static_cast<int32_t>(pose->y) - viewportCenterY) * mapCellSize / CELL_SIZE + viewportHeightPixels / 2;
 
         bool robotOnScreen = (robotScreenX >= 0 && robotScreenX < currentWidth() &&
                               robotScreenY >= VIEWPORT_MARGIN && robotScreenY < currentHeight() - VIEWPORT_MARGIN);
@@ -657,6 +668,8 @@ public:
             return; // Only show map if we are in the MAP screen state
         if (!map)
             return;
+        if (mapCellSize <= 0)
+            mapCellSize = MAP_CELL_PIXEL_SIZE;
 
         // Update viewport position before drawing
         updateViewport();
@@ -668,6 +681,10 @@ public:
         // Calculate how many cells fit on screen
         int16_t visibleCellsX = (viewportWidthPixels / mapCellSize) + 1;
         int16_t visibleCellsY = (viewportHeightPixels / mapCellSize) + 1;
+        if (visibleCellsX < 1)
+            visibleCellsX = 1;
+        if (visibleCellsY < 1)
+            visibleCellsY = 1;
         
         // Calculate cell coordinates of viewport center
         int16_t centerCellX = viewportCenterX / CELL_SIZE;
@@ -690,8 +707,8 @@ public:
         {
             for (int16_t cellY = startCellY; cellY < endCellY; cellY++)
             {
-                int16_t cellCmX = cellX * CELL_SIZE;
-                int16_t cellCmY = cellY * CELL_SIZE;
+                int32_t cellCmX = cellX * CELL_SIZE;
+                int32_t cellCmY = cellY * CELL_SIZE;
                 
                 CellState current = map->getCellState(cellCmX, cellCmY);
                 
@@ -707,7 +724,7 @@ public:
                 
                 // Determine cell color
                 uint16_t color;
-                if (pose && abs(cellCmX - (int16_t)pose->x) < CELL_SIZE && abs(cellCmY - (int16_t)pose->y) < CELL_SIZE)
+                if (pose && abs(cellCmX - static_cast<int32_t>(pose->x)) < CELL_SIZE && abs(cellCmY - static_cast<int32_t>(pose->y)) < CELL_SIZE)
                 {
                     color = TFT_GREEN; // Robot's current position
                 }
@@ -726,8 +743,8 @@ public:
                 }
                 
                 // Calculate screen position relative to viewport
-                int16_t screenX = mapOffsetX + (cellCmX - viewportCenterX) * mapCellSize / CELL_SIZE + viewportWidthPixels / 2;
-                int16_t screenY = mapOffsetY + (cellCmY - viewportCenterY) * mapCellSize / CELL_SIZE + viewportHeightPixels / 2;
+                int32_t screenX = mapOffsetX + (cellCmX - viewportCenterX) * mapCellSize / CELL_SIZE + viewportWidthPixels / 2;
+                int32_t screenY = mapOffsetY + (cellCmY - viewportCenterY) * mapCellSize / CELL_SIZE + viewportHeightPixels / 2;
                 
                 // Skip drawing if the cell is outside the map viewport area
                 if (screenX + mapCellSize < 0 || screenX >= currentWidth() ||
