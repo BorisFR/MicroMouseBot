@@ -43,11 +43,13 @@ public:
         theScreen.showHubState();
         theScreen.showAllSensorsState();
 
-        allSensors.setup();
-        allSensors.eventHubChange([this]()
-                                  { theScreen.showHubState(); });
-
-        allSensors.begin();
+        if (!SIMULATION_MODE_ENABLED)
+        {
+            allSensors.setup();
+            allSensors.eventHubChange([this]()
+                                      { theScreen.showHubState(); });
+            allSensors.begin();
+        }
         motorDriver.setup(MOTOR_A1_PIN, MOTOR_A2_PIN, MOTOR_B1_PIN, MOTOR_B2_PIN, MOTOR_PWM1_PIN, MOTOR_PWM2_PIN, MOTOR_STANDBY_PIN);
         theCar.setMotorCallbacks(
             [this](uint8_t speed)
@@ -61,16 +63,27 @@ public:
             [this]()
             { motorDriver.stop(); });
         theCar.setCommandTimeoutMs(500);
-        wheelEncoderLeft.setup(0, WHEEL_ENCODER_LEFT_A_PIN, WHEEL_ENCODER_LEFT_B_PIN);
-        wheelEncoderRight.setup(1, WHEEL_ENCODER_RIGHT_A_PIN, WHEEL_ENCODER_RIGHT_B_PIN);
+        if (!SIMULATION_MODE_ENABLED)
+        {
+            wheelEncoderLeft.setup(0, WHEEL_ENCODER_LEFT_A_PIN, WHEEL_ENCODER_LEFT_B_PIN);
+            wheelEncoderRight.setup(1, WHEEL_ENCODER_RIGHT_A_PIN, WHEEL_ENCODER_RIGHT_B_PIN);
+        }
 
         theMap.setup();
         theCar.setup();
         syncPoseToInternalState();
-        wheelEncoderLeft.getTicks(odometryLeftPrevTicks);
-        wheelEncoderRight.getTicks(odometryRightPrevTicks);
+        if (!SIMULATION_MODE_ENABLED)
+        {
+            wheelEncoderLeft.getTicks(odometryLeftPrevTicks);
+            wheelEncoderRight.getTicks(odometryRightPrevTicks);
+        }
+        else
+        {
+            simulationStartMs = millis();
+        }
         initializeMotionSelfTest();
-        startSensorTask();
+        if (!SIMULATION_MODE_ENABLED)
+            startSensorTask();
 
         Serial.printf("Total heap: %d\n", ESP.getHeapSize());
         Serial.printf("Free heap: %d\n", ESP.getFreeHeap());
@@ -82,7 +95,10 @@ public:
     {
         boardLed.loop();
         tickEncoderTelemetry();
-        pollSensorFrame();
+        if (SIMULATION_MODE_ENABLED)
+            tickSimulationSensorFrame();
+        else
+            pollSensorFrame();
         tickMotionCommandSource();
         tickOdometry();
         tickPoseTelemetry();
@@ -108,6 +124,13 @@ private:
     static constexpr uint32_t UI_INTERVAL_MS = 500;
     static constexpr uint32_t ODOMETRY_INTERVAL_MS = 20;
     static constexpr uint32_t POSE_TELEMETRY_INTERVAL_MS = 200;
+    static constexpr bool SIMULATION_MODE_ENABLED = false;
+    static constexpr bool SIMULATION_AUTORUN_SELFTEST = true;
+    static constexpr uint32_t SIMULATION_SENSOR_INTERVAL_MS = 50;
+    static constexpr float SIM_LINEAR_SPEED_CM_S = 18.0f;
+    static constexpr float SIM_TURN_RATE_DEG_S = 90.0f;
+    static constexpr float SIM_HEADING_WOBBLE_DEG = 1.2f;
+    static constexpr uint16_t SIM_MAX_DISTANCE_CM = 200;
     static constexpr bool MOTION_SELF_TEST_ENABLED = false;
     static constexpr uint32_t COMMAND_REFRESH_INTERVAL_MS = 100;
     static constexpr uint32_t SELF_TEST_FORWARD_MS = 1500;
@@ -140,6 +163,7 @@ private:
     elapsedMillis uiTimer;
     elapsedMillis odometryTimer;
     elapsedMillis poseTelemetryTimer;
+    elapsedMillis simulationSensorTimer;
     elapsedMillis commandRefreshTimer;
     elapsedMillis motionStateTimer;
     elapsedMillis encoderTelemetryTimer10;
@@ -164,6 +188,7 @@ private:
     int32_t odometryLeftPrevTicks = 0;
     int32_t odometryRightPrevTicks = 0;
     MotionSelfTestState motionSelfTestState = MotionSelfTestState::STATE_DISABLED;
+    unsigned long simulationStartMs = 0;
 
     static void sensorTaskEntry(void *arg)
     {
@@ -237,11 +262,33 @@ private:
 
     void initializeMotionSelfTest()
     {
-        motionSelfTestState = MOTION_SELF_TEST_ENABLED ? MotionSelfTestState::STATE_FORWARD : MotionSelfTestState::STATE_DISABLED;
+        const bool enableSelfTest = MOTION_SELF_TEST_ENABLED || (SIMULATION_MODE_ENABLED && SIMULATION_AUTORUN_SELFTEST);
+        motionSelfTestState = enableSelfTest ? MotionSelfTestState::STATE_FORWARD : MotionSelfTestState::STATE_DISABLED;
         motionStateTimer = 0;
         commandRefreshTimer = 0;
-        if (MOTION_SELF_TEST_ENABLED)
+        if (enableSelfTest)
             Serial.println("SELFTEST motion enabled");
+    }
+
+    void tickSimulationSensorFrame()
+    {
+        if (simulationSensorTimer < SIMULATION_SENSOR_INTERVAL_MS)
+            return;
+
+        simulationSensorTimer = 0;
+
+        lastFrame.distances[CAR_SENSOR_FRONT_INDEX] = computeSimulatedDistanceCm(CAR_SENSOR_FRONT_DIRECTION);
+        lastFrame.distances[CAR_SENSOR_LEFT_INDEX] = computeSimulatedDistanceCm(CAR_SENSOR_LEFT_DIRECTION);
+        lastFrame.distances[CAR_SENSOR_RIGHT_INDEX] = computeSimulatedDistanceCm(CAR_SENSOR_RIGHT_DIRECTION);
+        lastFrame.distances[CAR_SENSOR_TOP_LEFT_INDEX] = computeSimulatedDistanceCm(CAR_SENSOR_TOP_LEFT_DIRECTION);
+        lastFrame.distances[CAR_SENSOR_TOP_RIGHT_INDEX] = computeSimulatedDistanceCm(CAR_SENSOR_TOP_RIGHT_DIRECTION);
+
+        const float phase = (millis() - simulationStartMs) / 1000.0f;
+        const float imuWobble = SIM_HEADING_WOBBLE_DEG * sinf(phase * 0.6f);
+        lastFrame.heading = normalizeDeg(odometryThetaDeg + imuWobble);
+        imuHeadingDeg = lastFrame.heading;
+        hasImuHeading = true;
+        hasFrame = true;
     }
 
     void tickMotionCommandSource()
@@ -324,6 +371,12 @@ private:
 
     void tickOdometry()
     {
+        if (SIMULATION_MODE_ENABLED)
+        {
+            tickSimulationOdometry();
+            return;
+        }
+
         if (odometryTimer < ODOMETRY_INTERVAL_MS)
             return;
 
@@ -346,6 +399,53 @@ private:
         const float rightDistanceCm = ((rightDeltaTicks * WHEEL_CIRCUMFERENCE_METERS) / COUNTS_PER_OUTPUT_REV) * 100.0f;
         const float centerDistanceCm = (leftDistanceCm + rightDistanceCm) * 0.5f;
         const float deltaThetaRad = (rightDistanceCm - leftDistanceCm) / WHEEL_BASE_CM;
+        const float thetaMidRad = degToRad(odometryThetaDeg) + (deltaThetaRad * 0.5f);
+
+        poseXcm += centerDistanceCm * cosf(thetaMidRad);
+        poseYcm += centerDistanceCm * sinf(thetaMidRad);
+        odometryThetaDeg = normalizeDeg(odometryThetaDeg + radToDeg(deltaThetaRad));
+
+        float fusedHeadingDeg = odometryThetaDeg;
+        if (hasImuHeading)
+            fusedHeadingDeg = blendAnglesDeg(odometryThetaDeg, imuHeadingDeg, IMU_HEADING_BLEND_ALPHA);
+
+        updatePoseFromInternalState(fusedHeadingDeg);
+    }
+
+    void tickSimulationOdometry()
+    {
+        if (odometryTimer < ODOMETRY_INTERVAL_MS)
+            return;
+
+        const float dtSec = odometryTimer / 1000.0f;
+        odometryTimer = 0;
+
+        if (dtSec <= 0.0f)
+            return;
+
+        float linearSpeedCmS = 0.0f;
+        float yawSpeedDegS = 0.0f;
+
+        switch (motionSelfTestState)
+        {
+        case MotionSelfTestState::STATE_FORWARD:
+            linearSpeedCmS = SIM_LINEAR_SPEED_CM_S;
+            break;
+        case MotionSelfTestState::STATE_BACKWARD:
+            linearSpeedCmS = -SIM_LINEAR_SPEED_CM_S;
+            break;
+        case MotionSelfTestState::STATE_TURN_LEFT:
+            yawSpeedDegS = SIM_TURN_RATE_DEG_S;
+            break;
+        case MotionSelfTestState::STATE_STOP_AFTER_FORWARD:
+        case MotionSelfTestState::STATE_STOP_AFTER_TURN:
+        case MotionSelfTestState::STATE_COMPLETE:
+        case MotionSelfTestState::STATE_DISABLED:
+            break;
+        }
+
+        const float centerDistanceCm = linearSpeedCmS * dtSec;
+        const float deltaThetaRad = degToRad(yawSpeedDegS * dtSec);
         const float thetaMidRad = degToRad(odometryThetaDeg) + (deltaThetaRad * 0.5f);
 
         poseXcm += centerDistanceCm * cosf(thetaMidRad);
@@ -424,6 +524,53 @@ private:
     {
         const float delta = normalizeDeg(imuDeg - odomDeg);
         return normalizeDeg(odomDeg + alpha * delta);
+    }
+
+    uint16_t computeSimulatedDistanceCm(float sensorAngleOffsetDeg) const
+    {
+        const float headingRad = degToRad(normalizeDeg(pose.theta + sensorAngleOffsetDeg));
+        const float dx = cosf(headingRad);
+        const float dy = sinf(headingRad);
+        const float x0 = poseXcm;
+        const float y0 = poseYcm;
+
+        float tMin = 1e9f;
+        const float xMax = static_cast<float>(MAP_WIDTH - 1);
+        const float yMax = static_cast<float>(MAP_HEIGHT - 1);
+
+        if (fabsf(dx) > 0.0001f)
+        {
+            float tx = (0.0f - x0) / dx;
+            float y = y0 + tx * dy;
+            if (tx > 0.0f && y >= 0.0f && y <= yMax && tx < tMin)
+                tMin = tx;
+
+            tx = (xMax - x0) / dx;
+            y = y0 + tx * dy;
+            if (tx > 0.0f && y >= 0.0f && y <= yMax && tx < tMin)
+                tMin = tx;
+        }
+
+        if (fabsf(dy) > 0.0001f)
+        {
+            float ty = (0.0f - y0) / dy;
+            float x = x0 + ty * dx;
+            if (ty > 0.0f && x >= 0.0f && x <= xMax && ty < tMin)
+                tMin = ty;
+
+            ty = (yMax - y0) / dy;
+            x = x0 + ty * dx;
+            if (ty > 0.0f && x >= 0.0f && x <= xMax && ty < tMin)
+                tMin = ty;
+        }
+
+        if (tMin == 1e9f)
+            return SIM_MAX_DISTANCE_CM;
+
+        uint16_t distanceCm = static_cast<uint16_t>(tMin);
+        if (distanceCm > SIM_MAX_DISTANCE_CM)
+            return SIM_MAX_DISTANCE_CM;
+        return distanceCm;
     }
 
     void tickEncoderTelemetry()

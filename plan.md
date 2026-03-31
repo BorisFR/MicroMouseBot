@@ -36,7 +36,7 @@
 1. [DONE] Replace IMU/gyro/magnetometer error placeholders with real sensor status propagation.
 2. [DONE] Improve VL53L0X invalid reading handling and recovery policy.
 3. [DONE] Harden map/screen bounds and coordinate conversions.
-4. [NEXT] Add a lightweight software simulation path for repeatable validation without robot hardware.
+4. [DONE] Add a lightweight software simulation path for repeatable validation without robot hardware.
 
 ## Phase 4 - Autonomous navigation
 1. Add robot state machine: INIT, IDLE, MAPPING, NAVIGATE, ERROR.
