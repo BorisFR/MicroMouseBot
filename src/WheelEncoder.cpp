@@ -46,6 +46,8 @@ void WheelEncoder::setup(uint8_t index, uint8_t pinA, uint8_t pinB)
     ticks = 0;
     lastEncoded = (digitalRead(pinA) << 1) | digitalRead(pinB);
     lastResetTimeMs = millis();
+    windowBaseTicks = 0;
+    windowBaseTimeMs = lastResetTimeMs;
     switch (index)
     {
     case 0:

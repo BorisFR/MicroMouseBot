@@ -85,6 +85,8 @@ public:
         noInterrupts();
         ticks = 0;
         lastResetTimeMs = millis();
+        windowBaseTicks = 0;
+        windowBaseTimeMs = lastResetTimeMs;
         interrupts();
     }
 
@@ -121,6 +123,49 @@ public:
         return deltaDistanceKM / deltaTimeHours;
     }
 
+    /// @brief Instant RPM computed on a sliding window since previous window read.
+    /// @return RPM value (revolutions per minute)
+    float getRPMWindow() {
+        int32_t deltaTicks;
+        unsigned long deltaMs;
+        getWindowSnapshot(deltaTicks, deltaMs);
+
+        if (deltaMs == 0) {
+            return 0.0f;
+        }
+
+        float deltaTimeMinutes = deltaMs / 60000.0f;
+        float revolutions = deltaTicks / static_cast<float>(COUNTS_PER_OUTPUT_REV);
+        return revolutions / deltaTimeMinutes;
+    }
+
+    /// @brief Instant speed in KPH on a sliding window since previous window read.
+    /// @return Speed in KPH
+    float getSpeedKPHWindow() {
+        int32_t deltaTicks;
+        unsigned long deltaMs;
+        getWindowSnapshot(deltaTicks, deltaMs);
+
+        if (deltaMs == 0) {
+            return 0.0f;
+        }
+
+        float deltaTimeHours = deltaMs / 3600000.0f;
+        float deltaDistanceMeters = (deltaTicks * WHEEL_CIRCUMFERENCE_METERS) / COUNTS_PER_OUTPUT_REV;
+        float deltaDistanceKM = deltaDistanceMeters / 1000.0f;
+        return deltaDistanceKM / deltaTimeHours;
+    }
+
+    /// @brief Instant distance in millimeters on a sliding window since previous window read.
+    /// @return Distance in millimeters
+    float getDistanceMillimetersWindow() {
+        int32_t deltaTicks;
+        unsigned long deltaMs;
+        getWindowSnapshot(deltaTicks, deltaMs);
+        (void)deltaMs;
+        return (deltaTicks * WHEEL_CIRCUMFERENCE_MILLIMETERS) / COUNTS_PER_OUTPUT_REV;
+    }
+
     /// @brief Calculate the distance traveled by the wheel in millimeters based on the tick count and wheel circumference.
     /// @return Distance in millimeters
     float getDistanceMillimeters() {
@@ -132,7 +177,7 @@ public:
 
     /// @brief Backward-compatible typo alias for getDistanceMillimeters.
     /// @return Distance in millimeters
-    float getDistanceMilimeters() {
+    [[deprecated("Use getDistanceMillimeters()")]] float getDistanceMilimeters() {
         return getDistanceMillimeters();
     }
 
@@ -155,10 +200,23 @@ private:
         interrupts();
     }
 
+    void getWindowSnapshot(int32_t &outDeltaTicks, unsigned long &outDeltaMs) {
+        noInterrupts();
+        const unsigned long nowMs = millis();
+        const int32_t currentTicks = ticks;
+        outDeltaTicks = currentTicks - windowBaseTicks;
+        outDeltaMs = nowMs - windowBaseTimeMs;
+        windowBaseTicks = currentTicks;
+        windowBaseTimeMs = nowMs;
+        interrupts();
+    }
+
     uint8_t pinA, pinB;
     volatile int32_t ticks;         ///< Quadrature tick counter (ISR-written)
     volatile uint8_t lastEncoded;   ///< Previous 2-bit encoder state (A<<1 | B)
     unsigned long lastResetTimeMs;   ///< Timestamp of last reset/sampling baseline (ms)
+    int32_t windowBaseTicks;         ///< Last tick snapshot used by sliding-window reads
+    unsigned long windowBaseTimeMs;  ///< Last time snapshot used by sliding-window reads
 
 };
 

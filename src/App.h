@@ -65,6 +65,7 @@ public:
     void loop()
     {
         boardLed.loop();
+        tickEncoderTelemetry();
         pollSensorFrame();
         tickUI();
         theMap.loop();
@@ -75,6 +76,10 @@ public:
 private:
     static constexpr uint32_t SENSOR_INTERVAL_MS = 10; // 100 Hz sensor update rate
     static constexpr uint32_t UI_INTERVAL_MS = 500;
+    static constexpr bool ENCODER_TELEMETRY_ENABLED = false;
+    static constexpr uint32_t ENCODER_TELEMETRY_10_MS = 10;
+    static constexpr uint32_t ENCODER_TELEMETRY_50_MS = 50;
+    static constexpr uint32_t ENCODER_TELEMETRY_100_MS = 100;
 
     BoardLed &boardLed;
     TheScreen &theScreen;
@@ -87,6 +92,15 @@ private:
     BotPose &pose;
 
     elapsedMillis uiTimer;
+    elapsedMillis encoderTelemetryTimer10;
+    elapsedMillis encoderTelemetryTimer50;
+    elapsedMillis encoderTelemetryTimer100;
+    int32_t encoderLeftPrevTicks10 = 0;
+    int32_t encoderRightPrevTicks10 = 0;
+    int32_t encoderLeftPrevTicks50 = 0;
+    int32_t encoderRightPrevTicks50 = 0;
+    int32_t encoderLeftPrevTicks100 = 0;
+    int32_t encoderRightPrevTicks100 = 0;
 
     QueueHandle_t sensorQueue = nullptr;
     TaskHandle_t sensorTaskHandle = nullptr;
@@ -160,6 +174,55 @@ private:
         theScreen.showGyro(allSensors.isGyroReady(), allSensors.isGyroErrorDetected(), allSensors.getGyroHeading());
         theScreen.showMagnetometer(allSensors.isMagnetometerReady(), allSensors.isMagnetometerErrorDetected(), allSensors.getMagnetometerHeading());
         theScreen.showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), allSensors.isIMUCalibrated(), lastFrame.heading);
+    }
+
+    void tickEncoderTelemetry()
+    {
+        if (!ENCODER_TELEMETRY_ENABLED)
+            return;
+
+        emitEncoderTelemetryWindow(ENCODER_TELEMETRY_10_MS, encoderTelemetryTimer10, encoderLeftPrevTicks10, encoderRightPrevTicks10);
+        emitEncoderTelemetryWindow(ENCODER_TELEMETRY_50_MS, encoderTelemetryTimer50, encoderLeftPrevTicks50, encoderRightPrevTicks50);
+        emitEncoderTelemetryWindow(ENCODER_TELEMETRY_100_MS, encoderTelemetryTimer100, encoderLeftPrevTicks100, encoderRightPrevTicks100);
+    }
+
+    void emitEncoderTelemetryWindow(uint32_t windowMs, elapsedMillis &timer, int32_t &leftPrevTicks, int32_t &rightPrevTicks)
+    {
+        if (timer < windowMs)
+            return;
+
+        const unsigned long elapsedMs = timer;
+        timer = 0;
+
+        int32_t leftTicksNow = 0;
+        int32_t rightTicksNow = 0;
+        wheelEncoderLeft.getTicks(leftTicksNow);
+        wheelEncoderRight.getTicks(rightTicksNow);
+
+        const int32_t leftDeltaTicks = leftTicksNow - leftPrevTicks;
+        const int32_t rightDeltaTicks = rightTicksNow - rightPrevTicks;
+        leftPrevTicks = leftTicksNow;
+        rightPrevTicks = rightTicksNow;
+
+        const float elapsedMinutes = elapsedMs / 60000.0f;
+        const float elapsedHours = elapsedMs / 3600000.0f;
+        const float leftRevolutions = leftDeltaTicks / static_cast<float>(COUNTS_PER_OUTPUT_REV);
+        const float rightRevolutions = rightDeltaTicks / static_cast<float>(COUNTS_PER_OUTPUT_REV);
+        const float leftRPM = (elapsedMinutes > 0.0f) ? (leftRevolutions / elapsedMinutes) : 0.0f;
+        const float rightRPM = (elapsedMinutes > 0.0f) ? (rightRevolutions / elapsedMinutes) : 0.0f;
+
+        const float leftDistanceMeters = (leftDeltaTicks * WHEEL_CIRCUMFERENCE_METERS) / COUNTS_PER_OUTPUT_REV;
+        const float rightDistanceMeters = (rightDeltaTicks * WHEEL_CIRCUMFERENCE_METERS) / COUNTS_PER_OUTPUT_REV;
+        const float leftKPH = (elapsedHours > 0.0f) ? ((leftDistanceMeters / 1000.0f) / elapsedHours) : 0.0f;
+        const float rightKPH = (elapsedHours > 0.0f) ? ((rightDistanceMeters / 1000.0f) / elapsedHours) : 0.0f;
+        const float leftDistanceMm = leftDistanceMeters * 1000.0f;
+        const float rightDistanceMm = rightDistanceMeters * 1000.0f;
+
+        Serial.printf(
+            "ENC[%lums] L dt=%ld rpm=%.2f kph=%.3f dmm=%.2f | R dt=%ld rpm=%.2f kph=%.3f dmm=%.2f\n",
+            static_cast<unsigned long>(windowMs),
+            static_cast<long>(leftDeltaTicks), leftRPM, leftKPH, leftDistanceMm,
+            static_cast<long>(rightDeltaTicks), rightRPM, rightKPH, rightDistanceMm);
     }
 };
 
