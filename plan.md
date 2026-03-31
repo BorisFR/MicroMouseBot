@@ -5,6 +5,9 @@
 - Motor command layer started: `TheCar` now controls motor actions through callbacks linked in `App`.
 - Safety guard added: command timeout auto-stop in `TheCar` loop.
 - Differential drive primitives added in `TB6612FNG`: `drive(left,right)`, `turnLeft(speed)`, `turnRight(speed)`.
+- Differential odometry integrated in `App` (encoder ticks -> x/y/theta update loop).
+- Lightweight complementary heading fusion integrated in `App` (odometry + IMU heading).
+- Pose telemetry added on serial output for field calibration.
 
 ## Phase 1 - Critical base (in progress)
 1. [DONE] Fix GPIO pin conflict LED vs motor.
@@ -17,9 +20,12 @@
 4. [NEXT] Add an explicit command source (state machine or test command path) that calls these APIs continuously.
 
 ## Phase 2 - Pose reliability
-1. Integrate differential odometry from encoders into pose update (x, y, theta).
-2. Add lightweight heading fusion (IMU + odometry, complementary filter).
-3. Enable and structure encoder telemetry for debug and validation.
+1. [DONE] Integrate differential odometry from encoders into pose update (x, y, theta).
+2. [DONE] Add lightweight heading fusion (IMU + odometry, complementary filter).
+3. [NEXT] Tune geometry/fusion constants on hardware:
+   - wheel base (`WHEEL_BASE_CM`)
+   - blend factor (`IMU_HEADING_BLEND_ALPHA`)
+4. [NEXT] Enable and structure encoder telemetry windows for debug and validation campaigns.
 
 ## Phase 3 - Sensor robustness and UI integrity
 1. Replace IMU/gyro/magnetometer error placeholders with real sensor status propagation.

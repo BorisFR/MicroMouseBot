@@ -66,6 +66,9 @@ public:
 
         theMap.setup();
         theCar.setup();
+        syncPoseToInternalState();
+        wheelEncoderLeft.getTicks(odometryLeftPrevTicks);
+        wheelEncoderRight.getTicks(odometryRightPrevTicks);
         startSensorTask();
 
         Serial.printf("Total heap: %d\n", ESP.getHeapSize());
@@ -79,6 +82,8 @@ public:
         boardLed.loop();
         tickEncoderTelemetry();
         pollSensorFrame();
+        tickOdometry();
+        tickPoseTelemetry();
         tickUI();
         theMap.loop();
         theCar.loop();
@@ -88,7 +93,16 @@ public:
 private:
     static constexpr uint32_t SENSOR_INTERVAL_MS = 10; // 100 Hz sensor update rate
     static constexpr uint32_t UI_INTERVAL_MS = 500;
+    static constexpr uint32_t ODOMETRY_INTERVAL_MS = 20;
+    static constexpr uint32_t POSE_TELEMETRY_INTERVAL_MS = 200;
     static constexpr bool ENCODER_TELEMETRY_ENABLED = false;
+    static constexpr bool POSE_TELEMETRY_ENABLED = true;
+    // doit être ajusté au robot réel (entraxe roue-gauche ↔ roue-droite). 
+    // Un entraxe plus grand rendra la rotation plus lente mais plus précise, tandis qu'un entraxe plus petit rendra la rotation plus rapide mais moins précise.
+    static constexpr float WHEEL_BASE_CM = 8.0f; // Distance between the centers of the two wheels
+    // peut être réduit (ex. 0.15) si l’IMU est bruitée, ou augmenté (ex. 0.35) si l’odométrie dérive trop vite.
+    // Avec un alpha de 0.25, la direction IMU contribue à 25% de l’estimation finale, tandis que l’odométrie contribue à 75%. Cela permet d’avoir une estimation plus stable que l’IMU seul, tout en corrigeant progressivement les dérives de l’odométrie.
+    static constexpr float IMU_HEADING_BLEND_ALPHA = 0.25f; // Coefficient for blending IMU heading with odometry heading (0.0 = only odometry, 1.0 = only IMU)
     static constexpr uint32_t ENCODER_TELEMETRY_10_MS = 10;
     static constexpr uint32_t ENCODER_TELEMETRY_50_MS = 50;
     static constexpr uint32_t ENCODER_TELEMETRY_100_MS = 100;
@@ -104,6 +118,8 @@ private:
     BotPose &pose;
 
     elapsedMillis uiTimer;
+    elapsedMillis odometryTimer;
+    elapsedMillis poseTelemetryTimer;
     elapsedMillis encoderTelemetryTimer10;
     elapsedMillis encoderTelemetryTimer50;
     elapsedMillis encoderTelemetryTimer100;
@@ -118,6 +134,13 @@ private:
     TaskHandle_t sensorTaskHandle = nullptr;
     AllSensors::SensorFrame lastFrame{};
     bool hasFrame = false;
+    bool hasImuHeading = false;
+    float imuHeadingDeg = 0.0f;
+    float odometryThetaDeg = 0.0f;
+    float poseXcm = 0.0f;
+    float poseYcm = 0.0f;
+    int32_t odometryLeftPrevTicks = 0;
+    int32_t odometryRightPrevTicks = 0;
 
     static void sensorTaskEntry(void *arg)
     {
@@ -154,7 +177,8 @@ private:
         {
             lastFrame = frame;
             hasFrame = true;
-            pose.theta = frame.heading;
+            imuHeadingDeg = normalizeDeg(frame.heading);
+            hasImuHeading = true;
         }
     }
 
@@ -186,6 +210,110 @@ private:
         theScreen.showGyro(allSensors.isGyroReady(), allSensors.isGyroErrorDetected(), allSensors.getGyroHeading());
         theScreen.showMagnetometer(allSensors.isMagnetometerReady(), allSensors.isMagnetometerErrorDetected(), allSensors.getMagnetometerHeading());
         theScreen.showIMUstate(allSensors.isIMUinitializedSuccessfully(), allSensors.isIMUErrorDetected(), allSensors.isIMUCalibrated(), lastFrame.heading);
+    }
+
+    void tickOdometry()
+    {
+        if (odometryTimer < ODOMETRY_INTERVAL_MS)
+            return;
+
+        odometryTimer = 0;
+
+        int32_t leftTicksNow = 0;
+        int32_t rightTicksNow = 0;
+        wheelEncoderLeft.getTicks(leftTicksNow);
+        wheelEncoderRight.getTicks(rightTicksNow);
+
+        const int32_t leftDeltaTicks = leftTicksNow - odometryLeftPrevTicks;
+        const int32_t rightDeltaTicks = rightTicksNow - odometryRightPrevTicks;
+        odometryLeftPrevTicks = leftTicksNow;
+        odometryRightPrevTicks = rightTicksNow;
+
+        if (leftDeltaTicks == 0 && rightDeltaTicks == 0)
+            return;
+
+        const float leftDistanceCm = ((leftDeltaTicks * WHEEL_CIRCUMFERENCE_METERS) / COUNTS_PER_OUTPUT_REV) * 100.0f;
+        const float rightDistanceCm = ((rightDeltaTicks * WHEEL_CIRCUMFERENCE_METERS) / COUNTS_PER_OUTPUT_REV) * 100.0f;
+        const float centerDistanceCm = (leftDistanceCm + rightDistanceCm) * 0.5f;
+        const float deltaThetaRad = (rightDistanceCm - leftDistanceCm) / WHEEL_BASE_CM;
+        const float thetaMidRad = degToRad(odometryThetaDeg) + (deltaThetaRad * 0.5f);
+
+        poseXcm += centerDistanceCm * cosf(thetaMidRad);
+        poseYcm += centerDistanceCm * sinf(thetaMidRad);
+        odometryThetaDeg = normalizeDeg(odometryThetaDeg + radToDeg(deltaThetaRad));
+
+        float fusedHeadingDeg = odometryThetaDeg;
+        if (hasImuHeading)
+            fusedHeadingDeg = blendAnglesDeg(odometryThetaDeg, imuHeadingDeg, IMU_HEADING_BLEND_ALPHA);
+
+        updatePoseFromInternalState(fusedHeadingDeg);
+    }
+
+    void tickPoseTelemetry()
+    {
+        if (!POSE_TELEMETRY_ENABLED)
+            return;
+        if (poseTelemetryTimer < POSE_TELEMETRY_INTERVAL_MS)
+            return;
+        poseTelemetryTimer = 0;
+
+        Serial.printf(
+            "POSE x=%u y=%u theta=%.2f odomTheta=%.2f imu=%.2f imuReady=%d\n",
+            static_cast<unsigned int>(pose.x),
+            static_cast<unsigned int>(pose.y),
+            pose.theta,
+            odometryThetaDeg,
+            imuHeadingDeg,
+            hasImuHeading ? 1 : 0);
+    }
+
+    void syncPoseToInternalState()
+    {
+        poseXcm = static_cast<float>(pose.x);
+        poseYcm = static_cast<float>(pose.y);
+        odometryThetaDeg = normalizeDeg(pose.theta);
+    }
+
+    void updatePoseFromInternalState(float fusedHeadingDeg)
+    {
+        pose.x = clampToMapAxis(poseXcm, MAP_WIDTH);
+        pose.y = clampToMapAxis(poseYcm, MAP_HEIGHT);
+        pose.theta = normalizeDeg(fusedHeadingDeg);
+    }
+
+    static uint16_t clampToMapAxis(float valueCm, uint16_t maxCm)
+    {
+        if (valueCm < 0.0f)
+            return 0;
+        const float maxAxis = static_cast<float>(maxCm - 1);
+        if (valueCm > maxAxis)
+            return static_cast<uint16_t>(maxAxis);
+        return static_cast<uint16_t>(valueCm);
+    }
+
+    static float normalizeDeg(float angleDeg)
+    {
+        while (angleDeg <= -180.0f)
+            angleDeg += 360.0f;
+        while (angleDeg > 180.0f)
+            angleDeg -= 360.0f;
+        return angleDeg;
+    }
+
+    static float degToRad(float deg)
+    {
+        return deg * (PI / 180.0f);
+    }
+
+    static float radToDeg(float rad)
+    {
+        return rad * (180.0f / PI);
+    }
+
+    static float blendAnglesDeg(float odomDeg, float imuDeg, float alpha)
+    {
+        const float delta = normalizeDeg(imuDeg - odomDeg);
+        return normalizeDeg(odomDeg + alpha * delta);
     }
 
     void tickEncoderTelemetry()
