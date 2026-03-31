@@ -37,7 +37,7 @@ static void handleInterruptB2Static()
 
 void WheelEncoder::setup(uint8_t index, uint8_t pinA, uint8_t pinB)
 {
-    myTrace.println("🔄 wheel encoder setup");
+    myTrace.println("🔄 wheel encoder setup (" + String(index) + ")");
     this->pinA = pinA;
     this->pinB = pinB;
 

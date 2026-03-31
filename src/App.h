@@ -135,15 +135,15 @@ private:
     static constexpr uint32_t SELF_TEST_PAUSE_MS = 500;
     static constexpr uint8_t SELF_TEST_SPEED = 120;
 
-    static constexpr bool SIMULATION_MODE_ENABLED = true;     // Set to true to enable simulation mode with synthetic sensor data and pose updates, false to use real hardware
-    static constexpr bool SIMULATION_AUTORUN_SELFTEST = true; // If true, the motion self-test will automatically run in simulation mode after 2 seconds
+    static constexpr bool SIMULATION_MODE_ENABLED = false;     // Set to true to enable simulation mode with synthetic sensor data and pose updates, false to use real hardware
+    static constexpr bool SIMULATION_AUTORUN_SELFTEST = false; // If true, the motion self-test will automatically run in simulation mode after 2 seconds
     static constexpr SimulationScenario SIMULATION_SCENARIO = SimulationScenario::SCENARIO_SELFTEST; // SCENARIO_SQUARE;
     static constexpr uint32_t SIM_SCENARIO_STRAIGHT_MS = 5000;
     static constexpr uint32_t SIM_SCENARIO_SQUARE_FORWARD_MS = 2000;
     static constexpr uint32_t SIM_SCENARIO_SQUARE_TURN_MS = 1000;
 
     static constexpr bool ENCODER_TELEMETRY_ENABLED = false; // Set to true to enable periodic telemetry of encoder ticks, RPM, and speed for debugging purposes
-    static constexpr bool POSE_TELEMETRY_ENABLED = true; // Set to true to enable periodic telemetry of the robot's pose (x, y, theta) for debugging purposes. This can help verify that the pose estimation is working correctly and that the robot is moving as expected.
+    static constexpr bool POSE_TELEMETRY_ENABLED = false; // Set to true to enable periodic telemetry of the robot's pose (x, y, theta) for debugging purposes. This can help verify that the pose estimation is working correctly and that the robot is moving as expected.
 
     static constexpr uint32_t SENSOR_INTERVAL_MS = 10; // 100 Hz sensor update rate
     static constexpr uint32_t UI_INTERVAL_MS = 500;
